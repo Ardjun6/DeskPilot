@@ -19,46 +19,46 @@ THEMES: Dict[str, Theme] = {
         name="Dark",
         is_dark=True,
         colors={
-            "bg": "#1f2227",
-            "bg_alt": "#252932",
-            "surface": "#2c3038",
-            "border": "#3a3f4a",
-            "text": "#f0f2f5",
-            "text_muted": "#a9afbf",
-            "accent": "#5b8def",
-            "accent_soft": "#3b4a6a",
+            "bg": "#15171c",
+            "bg_alt": "#1c2028",
+            "surface": "#242a34",
+            "border": "#353b46",
+            "text": "#f5f7fb",
+            "text_muted": "#a7b0c2",
+            "accent": "#6ea8ff",
+            "accent_soft": "#2d3a52",
             "shadow": "#00000040",
-            "input_bg": "#2c3038",
+            "input_bg": "#1f242c",
         },
     ),
     "light": Theme(
         name="Light",
         is_dark=False,
         colors={
-            "bg": "#f7f8fb",
-            "bg_alt": "#eef0f4",
+            "bg": "#f6f7fb",
+            "bg_alt": "#eef1f6",
             "surface": "#ffffff",
-            "border": "#dfe3eb",
+            "border": "#d6dbe5",
             "text": "#1f2430",
             "text_muted": "#6b7280",
-            "accent": "#3b6cf6",
-            "accent_soft": "#e7edff",
+            "accent": "#3f79ff",
+            "accent_soft": "#e4ecff",
             "shadow": "#00000026",
-            "input_bg": "#ffffff",
+            "input_bg": "#fdfdff",
         },
     ),
     "classic": Theme(
         name="Classic",
         is_dark=False,
         colors={
-            "bg": "#e8eaed",
-            "bg_alt": "#dfe1e5",
-            "surface": "#f5f6f7",
-            "border": "#c9ccd3",
+            "bg": "#e7eaef",
+            "bg_alt": "#dfe3ea",
+            "surface": "#f5f7fa",
+            "border": "#c6ccd8",
             "text": "#1f2430",
             "text_muted": "#555b66",
-            "accent": "#4b6ea9",
-            "accent_soft": "#dfe8f5",
+            "accent": "#416fb4",
+            "accent_soft": "#d7e4f7",
             "shadow": "#00000020",
             "input_bg": "#ffffff",
         },
@@ -110,16 +110,20 @@ class ThemeManager:
             selection-background-color: {c['accent_soft']};
         }}
         QFrame#Toolbar {{
-            background: {c['surface']};
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 {c['surface']}, stop:1 {c['bg_alt']});
             border: 1px solid {c['border']};
-            border-radius: 8px;
-            padding: 6px;
+            border-radius: 10px;
+            padding: 8px;
         }}
         QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QListWidget, QTreeWidget {{
             background: {c['input_bg']};
             border: 1px solid {c['border']};
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 10px;
+            padding: 9px 10px;
+        }}
+        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
+            border-color: {c['accent']};
         }}
         QListWidget {{
             outline: none;
@@ -127,23 +131,28 @@ class ThemeManager:
         QPushButton {{
             background: {c['surface']};
             border: 1px solid {c['border']};
-            border-radius: 8px;
-            padding: 8px 12px;
+            border-radius: 10px;
+            padding: 8px 14px;
         }}
         QPushButton:hover {{
             border-color: {c['accent']};
+            background: {c['bg_alt']};
         }}
         QPushButton:pressed {{
-            background: {c['bg_alt']};
+            background: {c['accent_soft']};
         }}
         QPushButton[primary="true"] {{
             background: {c['accent']};
             color: {c['bg']};
             border: 1px solid {c['accent']};
         }}
+        QPushButton[primary="true"]:hover {{
+            background: {c['accent']};
+            border-color: {c['accent']};
+        }}
         QListWidget::item {{
-            padding: 7px 8px;
-            margin: 2px 4px;
+            padding: 8px 10px;
+            margin: 3px 6px;
             border-radius: 6px;
             border: 1px solid transparent;
         }}
@@ -164,7 +173,7 @@ class ThemeManager:
         QFrame[class="action-card"] {{
             background: {c['surface']};
             border: 1px solid {c['border']};
-            border-radius: 10px;
+            border-radius: 12px;
         }}
         QLabel#ActionTitle {{
             font-size: 15px;
@@ -177,5 +186,41 @@ class ThemeManager:
             background: {c['input_bg']};
             border: 1px solid {c['border']};
             border-radius: 8px;
+        }}
+        QScrollBar:vertical {{
+            background: transparent;
+            width: 10px;
+            margin: 4px 2px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {c['border']};
+            border-radius: 5px;
+            min-height: 24px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {c['accent']};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            height: 0px;
+            background: transparent;
+        }}
+        QScrollBar:horizontal {{
+            background: transparent;
+            height: 10px;
+            margin: 2px 4px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: {c['border']};
+            border-radius: 5px;
+            min-width: 24px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: {c['accent']};
+        }}
+        QScrollBar::add-line:horizontal,
+        QScrollBar::sub-line:horizontal {{
+            width: 0px;
+            background: transparent;
         }}
         """
