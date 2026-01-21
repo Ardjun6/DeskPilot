@@ -121,6 +121,9 @@ class ThemeManager:
             border-radius: 8px;
             padding: 8px;
         }}
+        QListWidget {{
+            outline: none;
+        }}
         QPushButton {{
             background: {c['surface']};
             border: 1px solid {c['border']};
@@ -142,9 +145,13 @@ class ThemeManager:
             padding: 8px;
             border-radius: 6px;
         }}
+        QListWidget::item:focus {{
+            outline: none;
+        }}
         QListWidget::item:selected {{
             background: {c['accent_soft']};
             color: {c['text']};
+            border: 1px solid {c['accent']};
         }}
         QFrame[class="action-card"] {{
             background: {c['surface']};
