@@ -9,13 +9,58 @@ DeskPilot is a Windows-only, local-first PySide6 desktop automation command cent
 
 ## Setup
 - Python 3.10+ recommended
-- Create a virtual environment and install dependencies:
-  - `python -m venv .venv`
-  - `.venv\Scripts\activate`
-  - `pip install -r requirements.txt`
+- These steps are written for Windows. Use the copy/paste blocks below.
+- If you are new to Python: a **virtual environment** is a safe folder for app dependencies.
+
+### Option A: Quick start (developers)
+```
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pip install pyinstaller
+python -m deskpilot.main
+```
+
+### Option B: Step-by-step (first-time users)
+1. **Open Command Prompt** in the project folder.
+2. **Create a virtual environment** (one-time):
+   ```
+   python -m venv .venv
+   ```
+3. **Activate it** (you should see `(.venv)` in your prompt):
+   ```
+   .venv\Scripts\activate
+   ```
+4. **Install the app dependencies**:
+   ```
+   pip install -r requirements.txt
+   ```
+5. **Install the builder** (needed for the `.exe`):
+   ```
+   pip install pyinstaller
+   ```
+6. **Run DeskPilot**:
+   ```
+   python -m deskpilot.main
+   ```
 
 ## Run
-- From the repo root: `python -m deskpilot.main`
+- From the repo root (auto-builds `dist/DeskPilot.exe` each run):
+  ```
+  python -m deskpilot.main
+  ```
+- Skip the auto build step:
+  ```
+  python -m deskpilot.main --no-build-exe
+  ```
+- Build only (no app UI):
+  ```
+  python -m deskpilot.main --build-exe
+  ```
+- Exit the virtual environment when you're done:
+  ```
+  deactivate
+  ```
 
 ## Config & extensibility (power-user friendly)
 On first run, DeskPilot creates a `config/` folder (portable mode) or `%USERPROFILE%\.deskpilot\config\` with example files:
