@@ -12,11 +12,11 @@ from .app import DeskPilotApp
 from .ui.theme_manager import ThemeManager
 
 
-def build_exe() -> int:
+def build_exe(required: bool = True) -> int:
     """Build a Windows executable using PyInstaller."""
     if importlib.util.find_spec("PyInstaller") is None:
         print("PyInstaller is required. Install with: pip install pyinstaller")
-        return 1
+        return 1 if required else 0
 
     project_root = Path(__file__).resolve().parents[1]
     dist_dir = project_root / "dist"
@@ -51,10 +51,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Build a Windows executable using PyInstaller.",
     )
+    parser.add_argument(
+        "--no-build-exe",
+        action="store_true",
+        help="Skip the automatic executable build step.",
+    )
     args = parser.parse_args(argv)
 
     if args.build_exe:
-        return build_exe()
+        return build_exe(required=True)
+
+    if not args.no_build_exe:
+        build_exe(required=False)
 
     app = QApplication(sys.argv)
     theme_manager = ThemeManager(app, default="dark")

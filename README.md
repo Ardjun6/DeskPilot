@@ -9,13 +9,31 @@ DeskPilot is a Windows-only, local-first PySide6 desktop automation command cent
 
 ## Setup
 - Python 3.10+ recommended
-- Create a virtual environment and install dependencies:
-  - `python -m venv .venv`
-  - `.venv\Scripts\activate`
-  - `pip install -r requirements.txt`
+- Create a virtual environment and install dependencies (Windows, copy/paste):
+  ```
+  python -m venv .venv
+  .venv\Scripts\activate
+  pip install -r requirements.txt
+  pip install pyinstaller
+  ```
 
 ## Run
-- From the repo root: `python -m deskpilot.main`
+- From the repo root (auto-builds `dist/DeskPilot.exe` each run):
+  ```
+  python -m deskpilot.main
+  ```
+- Skip the auto build step:
+  ```
+  python -m deskpilot.main --no-build-exe
+  ```
+- Build only (no app UI):
+  ```
+  python -m deskpilot.main --build-exe
+  ```
+- Exit the virtual environment when you're done:
+  ```
+  deactivate
+  ```
 
 ## Config & extensibility (power-user friendly)
 On first run, DeskPilot creates a `config/` folder (portable mode) or `%USERPROFILE%\.deskpilot\config\` with example files:
