@@ -142,8 +142,16 @@ class ThemeManager:
             border: 1px solid {c['accent']};
         }}
         QListWidget::item {{
-            padding: 8px;
+            padding: 7px 8px;
+            margin: 2px 4px;
             border-radius: 6px;
+            border: 1px solid transparent;
+        }}
+        QListWidget::item:hover {{
+            background: {c['bg_alt']};
+        }}
+        QListWidget::item:focus {{
+            outline: none;
         }}
         QListWidget::item:focus {{
             outline: none;
