@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 from typing import Dict, Optional
 
 from jinja2 import Template
@@ -40,6 +38,7 @@ class TemplateView(QWidget):
         self.action_engine = action_engine
         self.log_callback = log_callback
         self.current_template: Optional[TemplateDef] = None
+        self._last_inputs: Dict[str, Dict[str, str]] = {}
 
         self.template_picker = QComboBox()
         self.template_picker.currentIndexChanged.connect(self._on_template_changed)
@@ -81,7 +80,10 @@ class TemplateView(QWidget):
         template = self.template_picker.currentData()
         if not template:
             return
+        if self.current_template:
+            self._remember_inputs(self.current_template.id, self._collect_inputs())
         self.current_template = template
+        remembered = self._last_inputs.get(template.id, {})
         # rebuild form
         while self.form_layout.count():
             item = self.form_layout.takeAt(0)
@@ -92,16 +94,19 @@ class TemplateView(QWidget):
             if field.type == "choice":
                 widget = QComboBox()
                 widget.addItems(field.choices)
-                if field.default:
-                    widget.setCurrentText(field.default)
+                preferred = remembered.get(field.key) or field.default
+                if preferred and preferred in field.choices:
+                    widget.setCurrentText(preferred)
             elif field.type == "multiline":
                 widget = QTextEdit()
-                if field.default:
-                    widget.setPlainText(field.default)
+                preferred = remembered.get(field.key) or field.default
+                if preferred:
+                    widget.setPlainText(preferred)
             else:
                 widget = QLineEdit()
-                if field.default:
-                    widget.setText(field.default)
+                preferred = remembered.get(field.key) or field.default
+                if preferred:
+                    widget.setText(preferred)
             widget.setProperty("required", field.required)
             widget.setProperty("field_key", field.key)
             self.form_layout.addRow(field.label, widget)
@@ -136,6 +141,8 @@ class TemplateView(QWidget):
         inputs = self._collect_inputs()
         try:
             rendered = self._render_template(inputs)
+            if self.current_template:
+                self._remember_inputs(self.current_template.id, inputs)
             copy_text(rendered)
             result = RunResult(status="success", outputs={"rendered_text": rendered})
             result.add_log("INFO", f"Rendered template {self.current_template.name if self.current_template else ''}")
@@ -148,6 +155,8 @@ class TemplateView(QWidget):
         inputs = self._collect_inputs()
         try:
             rendered = self._render_template(inputs)
+            if self.current_template:
+                self._remember_inputs(self.current_template.id, inputs)
             self.preview.setPlainText(rendered)
             result = RunResult(status="success", outputs={"rendered_text": rendered})
             result.add_log("INFO", f"Previewed template {self.current_template.name if self.current_template else ''}")
@@ -162,3 +171,6 @@ class TemplateView(QWidget):
         for t in self.config_manager.templates.templates:
             if current in t.name.lower() or current in t.category.lower():
                 self.template_picker.addItem(t.name, t)
+
+    def _remember_inputs(self, template_id: str, inputs: Dict[str, str]) -> None:
+        self._last_inputs[template_id] = dict(inputs)

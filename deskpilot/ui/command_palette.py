@@ -16,6 +16,7 @@ class CommandPalette(QDialog):
         self.setWindowFlag(Qt.FramelessWindowHint)
         self.setModal(True)
         self.provider = provider or (lambda _text: [])
+        self._last_query = ""
 
         self.edit = QLineEdit()
         self.edit.setPlaceholderText("Type to search actions...")
@@ -36,12 +37,15 @@ class CommandPalette(QDialog):
         if self.parent():
             geo = self.parent().geometry()
             self.move(geo.center().x() - self.width() // 2, geo.center().y() - self.height() // 2)
-        self._refresh("")
+        self.edit.setText(self._last_query)
+        self.edit.selectAll()
+        self._refresh(self._last_query)
         self.show()
         self.edit.setFocus()
 
     def _refresh(self, text: str) -> None:
-        items = self.provider(text or "")
+        self._last_query = text or ""
+        items = self.provider(self._last_query)
         self.list.clear()
         for action_id, label in items:
             item = QListWidgetItem(label)

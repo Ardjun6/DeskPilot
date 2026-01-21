@@ -75,6 +75,8 @@ class MainWindow(QMainWindow):
         self.command_palette = CommandPalette(self, provider=self._provide_actions)
         self.shortcut_command = QShortcut(QKeySequence("Ctrl+K"), self)
         self.current_worker: ExecutionWorker | None = None
+        self.recent_items: list[str] = []
+        self.max_recent_items = 6
 
         self._build_ui()
         self._connect_signals()
@@ -163,15 +165,28 @@ class MainWindow(QMainWindow):
     def _provide_actions(self, text: str):
         term = text.lower()
         items = []
+        suggested_ids: set[str] = set()
+        if not term:
+            for item_id in self.recent_items:
+                label = self._label_for_action_id(item_id)
+                if label:
+                    items.append((item_id, f"★ Suggested {label}"))
+                    suggested_ids.add(item_id)
         for a in self.action_engine.list_actions():
             if term in a.name.lower() or term in a.description.lower():
-                items.append((a.id, f"[Action] {a.name} — {a.description}"))
+                action_id = a.id
+                if action_id not in suggested_ids:
+                    items.append((action_id, f"[Action] {a.name} — {a.description}"))
         for m in self.macro_engine.list_macros():
             if term in m.name.lower() or term in m.description.lower():
-                items.append((f"macro:{m.id}", f"[Macro] {m.name} — {m.description}"))
+                macro_id = f"macro:{m.id}"
+                if macro_id not in suggested_ids:
+                    items.append((macro_id, f"[Macro] {m.name} — {m.description}"))
         for name in self.config_manager.profiles.profiles.keys():
             if term in name.lower():
-                items.append((f"profile:{name}", f"[Profile] {name}"))
+                profile_id = f"profile:{name}"
+                if profile_id not in suggested_ids:
+                    items.append((profile_id, f"[Profile] {name}"))
         return items
 
     def _open_command_palette(self) -> None:
@@ -179,6 +194,7 @@ class MainWindow(QMainWindow):
 
     def _run_from_palette(self, action_id: str) -> None:
         self.search_bar.clear()
+        self._record_recent(action_id)
         if action_id.startswith("macro:"):
             self.macro_view._run_macro(action_id.split(":", 1)[1])  # type: ignore[attr-defined]
         elif action_id.startswith("profile:"):
@@ -189,6 +205,7 @@ class MainWindow(QMainWindow):
     def run_action(self, action_id: str) -> None:
         if self.current_worker:
             return
+        self._record_recent(action_id)
         worker = ExecutionWorker(self.action_engine, action_id)
         self.current_worker = worker
         self.stop_button.setEnabled(True)
@@ -222,3 +239,24 @@ class MainWindow(QMainWindow):
     def _stop_current(self) -> None:
         if self.current_worker:
             self.current_worker.request_cancel()
+
+    def _record_recent(self, action_id: str) -> None:
+        if action_id in self.recent_items:
+            self.recent_items.remove(action_id)
+        self.recent_items.insert(0, action_id)
+        if len(self.recent_items) > self.max_recent_items:
+            self.recent_items = self.recent_items[: self.max_recent_items]
+
+    def _label_for_action_id(self, action_id: str) -> Optional[str]:
+        if action_id.startswith("macro:"):
+            macro = self.macro_engine.get_macro(action_id.split(":", 1)[1])
+            if macro:
+                return f"[Macro] {macro.name} — {macro.description}"
+            return None
+        if action_id.startswith("profile:"):
+            name = action_id.split(":", 1)[1]
+            return f"[Profile] {name}"
+        action = self.action_engine.get_action(action_id)
+        if action:
+            return f"[Action] {action.name} — {action.description}"
+        return None
