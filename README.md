@@ -25,5 +25,9 @@ On first run, DeskPilot creates a `config/` folder (portable mode) or `%USERPROF
 
 You can create your own actions by editing YAML—no Python required for common workflows like launch profiles, render templates, copy to clipboard, and wait steps.
 
+## Roadmap (draft)
+See the draft product roadmap for planned UX, automation, editor, and performance improvements:
+`docs/roadmap.md`.
+
 ## Sharing (later concept)
 Action packs will be importable/exportable as a simple `.zip` containing `actions.yaml`, `templates.yaml`, `profiles.yaml` and assets.
