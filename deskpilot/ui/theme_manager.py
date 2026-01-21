@@ -153,6 +153,9 @@ class ThemeManager:
         QListWidget::item:focus {{
             outline: none;
         }}
+        QListWidget::item:focus {{
+            outline: none;
+        }}
         QListWidget::item:selected {{
             background: {c['accent_soft']};
             color: {c['text']};

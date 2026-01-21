@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from .app import DeskPilotApp
+from .build import build_exe
 from .ui.theme_manager import ThemeManager
 
 

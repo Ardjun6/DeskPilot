@@ -62,6 +62,11 @@ python -m deskpilot.main
   deactivate
   ```
 
+## Build (Windows .exe)
+- Install PyInstaller: `pip install pyinstaller`
+- Build an executable: `python -m deskpilot.main --build-exe`
+- The output is written to `dist/DeskPilot.exe`
+
 ## Config & extensibility (power-user friendly)
 On first run, DeskPilot creates a `config/` folder (portable mode) or `%USERPROFILE%\.deskpilot\config\` with example files:
 - `actions.yaml`: data-driven actions (what to do)
