@@ -17,6 +17,12 @@ DeskPilot is a Windows-only, local-first PySide6 desktop automation command cent
 ## Run
 - From the repo root: `python -m deskpilot.main`
 
+## Build (Windows .exe)
+- Install PyInstaller: `pip install pyinstaller`
+- Build an executable: `python -m deskpilot.main --build-exe`
+- Or use the dedicated builder: `python -m deskpilot.build`
+- The output is written to `dist/DeskPilot.exe`
+
 ## Config & extensibility (power-user friendly)
 On first run, DeskPilot creates a `config/` folder (portable mode) or `%USERPROFILE%\.deskpilot\config\` with example files:
 - `actions.yaml`: data-driven actions (what to do)
