@@ -143,6 +143,25 @@ class ThemeManager:
             border-radius: 10px;
             padding: 8px;
         }}
+        QListWidget#Sidebar {{
+            background: {c['surface']};
+            border: 1px solid {c['border']};
+            border-radius: 12px;
+            padding: 6px;
+        }}
+        QListWidget#Sidebar::item {{
+            padding: 8px 10px;
+            margin: 3px 4px;
+            border-radius: 8px;
+        }}
+        QListWidget#Sidebar::item:selected {{
+            background: {c['accent_soft']};
+            color: {c['text']};
+            border: 1px solid {c['accent']};
+        }}
+        QListWidget#Sidebar::item:hover {{
+            background: {c['bg_alt']};
+        }}
         QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QListWidget, QTreeWidget {{
             background: {c['input_bg']};
             border: 1px solid {c['border']};
@@ -201,6 +220,36 @@ class ThemeManager:
             background: {c['surface']};
             border: 1px solid {c['border']};
             border-radius: 12px;
+        }}
+        QFrame[class="action-card"][category="launch"] {{
+            border-left: 4px solid {c['tag_blue']};
+        }}
+        QFrame[class="action-card"][category="template"] {{
+            border-left: 4px solid {c['tag_purple']};
+        }}
+        QFrame[class="action-card"][category="flow"] {{
+            border-left: 4px solid {c['tag_teal']};
+        }}
+        QFrame[class="action-card"][category="browser"] {{
+            border-left: 4px solid {c['tag_orange']};
+        }}
+        QFrame[class="action-card"][category="utility"] {{
+            border-left: 4px solid {c['tag_blue']};
+        }}
+        QFrame[class="action-card"][category="notes"] {{
+            border-left: 4px solid {c['tag_purple']};
+        }}
+        QFrame[class="action-card"][category="email"] {{
+            border-left: 4px solid {c['tag_purple']};
+        }}
+        QFrame[class="action-card"][category="productivity"] {{
+            border-left: 4px solid {c['tag_green']};
+        }}
+        QFrame[class="action-card"][category="study"] {{
+            border-left: 4px solid {c['tag_orange']};
+        }}
+        QFrame[class="action-card"][category="general"] {{
+            border-left: 4px solid {c['tag_gray']};
         }}
         QLabel[class="tag-chip"] {{
             background: {c['bg_alt']};

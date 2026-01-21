@@ -13,6 +13,7 @@ class Sidebar(QListWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("Sidebar")
         self._populate()
         self.currentRowChanged.connect(self.section_changed.emit)
 

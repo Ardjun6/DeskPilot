@@ -46,6 +46,7 @@ class ActionList(QWidget):
         card = QFrame()
         card.setObjectName("ActionCard")
         card.setProperty("class", "action-card")
+        card.setProperty("category", self._category_tag(action))
         card.setFrameShape(QFrame.NoFrame)
         card.setContextMenuPolicy(Qt.CustomContextMenu)
         card.customContextMenuRequested.connect(
@@ -121,3 +122,10 @@ class ActionList(QWidget):
             row.addWidget(label)
         row.addStretch()
         return row
+
+    def _category_tag(self, action: dict) -> str:
+        tags = [str(tag).lower() for tag in (action.get("tags") or [])]
+        for key in ("launch", "template", "flow", "browser", "utility", "notes", "email", "productivity", "study"):
+            if key in tags:
+                return key
+        return tags[0] if tags else "general"
