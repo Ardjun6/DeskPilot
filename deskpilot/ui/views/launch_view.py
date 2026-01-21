@@ -13,7 +13,7 @@ from ...config.config_manager import ConfigManager
 
 
 class LaunchView(QWidget):
-    """Profiles launcher backed by config/profiles.yaml."""
+    """Profiles launcher backed by config/profiles.json."""
 
     def __init__(
         self,
