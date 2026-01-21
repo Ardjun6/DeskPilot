@@ -5,11 +5,13 @@ from typing import Dict, List, Optional
 
 from PySide6.QtWidgets import (
     QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QPlainTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -59,6 +61,9 @@ class MacroView(QWidget):
         self.search.textChanged.connect(self.filter_items)
         self.list_widget.run_requested.connect(self._run_macro)
         self.list_widget.preview_requested.connect(self._preview_macro)
+        self.list_widget.explain_requested.connect(self._explain_macro)
+        self.list_widget.edit_requested.connect(lambda _: self._open_editor())
+        self.list_widget.delete_requested.connect(self._delete_macro)
         self.edit_button.clicked.connect(self._open_editor)
         self.stop_button.clicked.connect(self._stop_worker)
 
@@ -120,6 +125,27 @@ class MacroView(QWidget):
             result.add_log("DEBUG", line)
         self.log_callback(result)
 
+    def _explain_macro(self, macro_id: str) -> None:
+        macro = self.macro_engine.get_macro(macro_id)
+        if macro is None:
+            return
+        lines = self.macro_engine.preview(macro_id)
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"What it does: {macro.name}")
+        layout = QVBoxLayout(dialog)
+        summary = QLabel(macro.description or "No description provided.")
+        summary.setWordWrap(True)
+        summary.setObjectName("ActionDesc")
+        preview_box = QPlainTextEdit()
+        preview_box.setReadOnly(True)
+        preview_box.setPlainText("\n".join(lines))
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(summary)
+        layout.addWidget(preview_box)
+        layout.addWidget(buttons)
+        dialog.exec()
+
     def _on_finished(self, result: RunResult) -> None:
         self.stop_button.setEnabled(False)
         self.current_worker = None
@@ -180,4 +206,22 @@ class MacroView(QWidget):
         dialog.exec()
         # reload file after editing
         self.config_manager.macros = dialog.reload_model(self.config_manager.macros_path, self.config_manager.macros)
+        self.refresh()
+
+    def _delete_macro(self, macro_id: str) -> None:
+        macro = self.macro_engine.get_macro(macro_id)
+        if macro is None:
+            return
+        confirm = QMessageBox.question(
+            self,
+            "Delete macro",
+            f"Delete '{macro.name}'? This will remove it from macros.json.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        self.config_manager.macros.macros = [
+            existing for existing in self.config_manager.macros.macros if existing.id != macro_id
+        ]
+        self.config_manager.save_all()
         self.refresh()
