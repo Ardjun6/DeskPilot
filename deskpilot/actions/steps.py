@@ -1,0 +1,374 @@
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import time
+import webbrowser
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+from jinja2 import Template
+
+import keyboard
+import pyautogui
+
+pyautogui.FAILSAFE = True
+
+from ..config.config_manager import ConfigManager
+from ..utils.clipboard import copy_text
+from .results import RunResult
+
+
+@dataclass(slots=True)
+class CancelToken:
+    cancelled: bool = False
+
+
+@dataclass(slots=True)
+class StepContext:
+    config: ConfigManager
+    inputs: Dict[str, Any]
+    cancel: CancelToken
+    dry_run: bool = False
+
+
+class Step(ABC):
+    type: str
+
+    @abstractmethod
+    def preview(self, ctx: StepContext) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        raise NotImplementedError
+
+
+class WaitStep(Step):
+    type = "wait"
+
+    def __init__(self, ms: int = 250) -> None:
+        self.ms = ms
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Wait {self.ms}ms"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping wait", self.type)
+            return
+        time.sleep(max(self.ms, 0) / 1000.0)
+
+
+class LaunchProfileStep(Step):
+    type = "launch_profile"
+
+    def __init__(self, profile: str, delay_ms: int = 300) -> None:
+        self.profile = profile
+        self.delay_ms = delay_ms
+
+    def preview(self, ctx: StepContext) -> str:
+        targets = ctx.config.profiles.profiles.get(self.profile, [])
+        return f"Launch profile '{self.profile}' ({len(targets)} targets)"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        targets = ctx.config.profiles.profiles.get(self.profile, [])
+        if not targets:
+            result.add_error(f"Profile '{self.profile}' has no targets.", self.type)
+            return
+
+        for t in targets:
+            if ctx.cancel.cancelled:
+                result.status = "cancelled"
+                result.add_log("WARNING", "Cancelled", self.type)
+                return
+            _launch_target(t, dry_run=ctx.dry_run, result=result, step_type=self.type)
+            if not ctx.dry_run:
+                time.sleep(max(self.delay_ms, 0) / 1000.0)
+
+
+class RenderTemplateStep(Step):
+    type = "render_template"
+
+    def __init__(self, template_id: str, output_key: str = "rendered_text") -> None:
+        self.template_id = template_id
+        self.output_key = output_key
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Render template '{self.template_id}' → outputs['{self.output_key}']"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        tdef = next((t for t in ctx.config.templates.templates if t.id == self.template_id), None)
+        if tdef is None:
+            result.add_error(f"Template not found: {self.template_id}", self.type)
+            return
+
+        try:
+            rendered = Template(tdef.jinja).render(**ctx.inputs)
+            result.outputs[self.output_key] = rendered
+            result.add_log("INFO", f"Rendered template '{tdef.name}'", self.type)
+        except Exception as e:  # noqa: BLE001 - surface to UI/logs
+            result.add_error(f"Template render failed: {e}", self.type, type(e).__name__)
+
+
+class CopyOutputStep(Step):
+    type = "copy_output"
+
+    def __init__(self, output_key: str) -> None:
+        self.output_key = output_key
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Copy outputs['{self.output_key}'] to clipboard"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        value = result.outputs.get(self.output_key)
+        if value is None:
+            result.add_error(f"Missing output: {self.output_key}", self.type)
+            return
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping clipboard write", self.type)
+            return
+        copy_text(str(value))
+        result.add_log("INFO", "Copied to clipboard", self.type)
+
+
+class HotkeyStep(Step):
+    type = "hotkey"
+
+    def __init__(self, keys: list[str]) -> None:
+        self.keys = keys
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Send hotkey: {'+'.join(self.keys)}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping hotkey", self.type)
+            return
+        keyboard.press_and_release("+".join(self.keys))
+        result.add_log("INFO", f"Pressed {'+'.join(self.keys)}", self.type)
+
+
+class TextStep(Step):
+    type = "text"
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Type text ({len(self.text)} chars)"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping typing", self.type)
+            return
+        pyautogui.typewrite(self.text)
+        result.add_log("INFO", "Typed text", self.type)
+
+
+class PasteStep(Step):
+    type = "paste"
+
+    def preview(self, ctx: StepContext) -> str:
+        return "Paste clipboard (Ctrl+V)"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping paste", self.type)
+            return
+        keyboard.press_and_release("ctrl+v")
+        result.add_log("INFO", "Pasted clipboard", self.type)
+
+
+class SetClipboardStep(Step):
+    type = "set_clipboard"
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def preview(self, ctx: StepContext) -> str:
+        return "Set clipboard text"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping clipboard set", self.type)
+            return
+        copy_text(self.text)
+        result.add_log("INFO", "Clipboard set", self.type)
+
+
+class OpenAppStep(Step):
+    type = "open_app"
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Open app: {self.path}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        _launch_target(self.path, dry_run=ctx.dry_run, result=result, step_type=self.type)
+
+
+class OpenUrlStep(Step):
+    type = "open_url"
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Open URL: {self.url}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        _launch_target(self.url, dry_run=ctx.dry_run, result=result, step_type=self.type)
+
+
+class RunCommandStep(Step):
+    type = "run"
+
+    def __init__(self, command: str) -> None:
+        self.command = command
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Run command: {self.command}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", f"Dry-run: would run {self.command}", self.type)
+            return
+        try:
+            subprocess.Popen(self.command, shell=True)  # noqa: S603,S607
+            result.add_log("INFO", f"Started command: {self.command}", self.type)
+        except Exception as e:  # noqa: BLE001
+            result.add_error(f"Command failed: {e}", self.type, type(e).__name__)
+
+
+class MoveFileStep(Step):
+    type = "move_file"
+
+    def __init__(self, src: str, dest: str) -> None:
+        self.src = src
+        self.dest = dest
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Move file {self.src} → {self.dest}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", f"Dry-run: move {self.src} -> {self.dest}", self.type)
+            return
+        try:
+            shutil.move(self.src, self.dest)
+            result.add_log("INFO", f"Moved {self.src} -> {self.dest}", self.type)
+        except Exception as e:  # noqa: BLE001
+            result.add_error(f"Move failed: {e}", self.type, type(e).__name__)
+
+
+class MoveFilesStep(Step):
+    type = "move_files"
+
+    def __init__(self, sources: list[str], dest: str) -> None:
+        self.sources = sources
+        self.dest = dest
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Move {len(self.sources)} files -> {self.dest}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        for src in self.sources:
+            if ctx.cancel.cancelled:
+                result.status = "cancelled"
+                return
+            if ctx.dry_run:
+                result.add_log("INFO", f"Dry-run: move {src} -> {self.dest}", self.type)
+                continue
+            try:
+                shutil.move(src, self.dest)
+                result.add_log("INFO", f"Moved {src} -> {self.dest}", self.type)
+            except Exception as e:  # noqa: BLE001
+                result.add_error(f"Move failed: {e}", self.type, type(e).__name__)
+                return
+
+
+class FocusWindowStep(Step):
+    type = "focus_window"
+
+    def __init__(self, title_substring: str, on_fail: str = "warn") -> None:
+        self.title_substring = title_substring
+        self.on_fail = on_fail
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Ensure window with '{self.title_substring}' is focused"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        active = pyautogui.getActiveWindow()
+        title = active.title if active else ""
+        if active and self.title_substring.lower() in title.lower():
+            result.add_log("INFO", f"Focus OK: {title}", self.type)
+            return
+        msg = f"Active window mismatch (expected contains '{self.title_substring}', got '{title}')"
+        if self.on_fail == "fail":
+            result.add_error(msg, self.type)
+        else:
+            result.add_log("WARNING", msg, self.type)
+
+
+def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
+    if step_type == "wait":
+        return WaitStep(ms=int(params.get("ms", 250)))
+    if step_type == "launch_profile":
+        return LaunchProfileStep(profile=str(params.get("profile", "")), delay_ms=int(params.get("delay_ms", 300)))
+    if step_type == "render_template":
+        return RenderTemplateStep(
+            template_id=str(params.get("template_id", "")),
+            output_key=str(params.get("output_key", "rendered_text")),
+        )
+    if step_type == "copy_output":
+        return CopyOutputStep(output_key=str(params.get("output_key", "")))
+    if step_type == "hotkey":
+        return HotkeyStep(keys=[str(k) for k in params.get("keys", [])])
+    if step_type == "text":
+        return TextStep(text=str(params.get("text", "")))
+    if step_type == "paste":
+        return PasteStep()
+    if step_type == "set_clipboard":
+        return SetClipboardStep(text=str(params.get("text", "")))
+    if step_type == "open_app":
+        return OpenAppStep(path=str(params.get("path", "")))
+    if step_type == "open_url":
+        return OpenUrlStep(url=str(params.get("url", "")))
+    if step_type == "run":
+        return RunCommandStep(command=str(params.get("command", "")))
+    if step_type == "move_file":
+        return MoveFileStep(src=str(params.get("src", "")), dest=str(params.get("dest", "")))
+    if step_type == "move_files":
+        return MoveFilesStep(sources=[str(s) for s in params.get("sources", [])], dest=str(params.get("dest", "")))
+    if step_type == "focus_window":
+        return FocusWindowStep(title_substring=str(params.get("title", "")), on_fail=str(params.get("on_fail", "warn")))
+    raise ValueError(f"Unknown step type: {step_type}")
+
+
+def _launch_target(target: str, dry_run: bool, result: RunResult, step_type: str) -> None:
+    if target.lower().startswith(("http://", "https://")):
+        if dry_run:
+            result.add_log("INFO", f"Dry-run: would open URL {target}", step_type)
+            return
+        webbrowser.open(target)
+        result.add_log("INFO", f"Opened URL: {target}", step_type)
+        return
+
+    if dry_run:
+        result.add_log("INFO", f"Dry-run: would launch {target}", step_type)
+        return
+
+    try:
+        if os.path.exists(target):
+            os.startfile(target)  # type: ignore[attr-defined]  # Windows only
+        else:
+            subprocess.Popen(target, shell=True)  # noqa: S603,S607 - user-configured local command
+        result.add_log("INFO", f"Launched: {target}", step_type)
+    except Exception as e:  # noqa: BLE001
+        result.add_error(f"Failed to launch '{target}': {e}", step_type, type(e).__name__)
+
