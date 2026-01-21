@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QMessageBox, QVBoxLayout, QWidget
 
 from ...actions.engine import ActionEngine
 from ...actions.results import RunResult
 from ...config.config_manager import ConfigManager
+from ..json_editor import JsonEditorDialog
 from ..widgets.action_list import ActionList
 
 
@@ -34,6 +35,9 @@ class FlowView(QWidget):
 
         self.list_widget.run_requested.connect(self._run)
         self.list_widget.preview_requested.connect(self._preview)
+        self.list_widget.explain_requested.connect(self._explain)
+        self.list_widget.edit_requested.connect(self._open_editor)
+        self.list_widget.delete_requested.connect(self._delete_action)
 
         self.refresh()
 
@@ -83,3 +87,35 @@ class FlowView(QWidget):
         for line in preview.lines:
             result.add_log("DEBUG", line)
         self.log_callback(result)
+
+    def _explain(self, action_id: str) -> None:
+        self.parent().explain_action(action_id)  # type: ignore[attr-defined]
+
+    def _open_editor(self, action_id: str) -> None:
+        dialog = JsonEditorDialog(
+            path=self.config_manager.actions_path,
+            loader=lambda text: self.config_manager.actions.model_validate_json(text),
+            formatter=lambda data: self.config_manager.actions.model_validate(data).model_dump(),
+            parent=self,
+        )
+        dialog.exec()
+        self.config_manager.actions = dialog.reload_model(self.config_manager.actions_path, self.config_manager.actions)
+        self.refresh()
+
+    def _delete_action(self, action_id: str) -> None:
+        action = self.action_engine.get_action(action_id)
+        if action is None:
+            return
+        confirm = QMessageBox.question(
+            self,
+            "Delete action",
+            f"Delete '{action.name}'? This will remove it from actions.json.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        self.config_manager.actions.actions = [
+            existing for existing in self.config_manager.actions.actions if existing.id != action_id
+        ]
+        self.config_manager.save_all()
+        self.refresh()

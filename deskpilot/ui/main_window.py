@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -221,6 +223,27 @@ class MainWindow(QMainWindow):
         for line in preview.lines:
             result.add_log("DEBUG", line)
         self._append_result(result)
+
+    def explain_action(self, action_id: str) -> None:
+        action = self.action_engine.get_action(action_id)
+        if action is None:
+            return
+        preview = self.action_engine.preview(action_id)
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"What it does: {action.name}")
+        layout = QVBoxLayout(dialog)
+        summary = QLabel(action.description or "No description provided.")
+        summary.setWordWrap(True)
+        summary.setObjectName("ActionDesc")
+        preview_box = QPlainTextEdit()
+        preview_box.setReadOnly(True)
+        preview_box.setPlainText("\n".join(preview.lines))
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(summary)
+        layout.addWidget(preview_box)
+        layout.addWidget(buttons)
+        dialog.exec()
 
     def _on_worker_finished(self, result):
         self.current_worker = None
