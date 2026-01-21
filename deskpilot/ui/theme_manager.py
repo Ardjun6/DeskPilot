@@ -29,6 +29,15 @@ THEMES: Dict[str, Theme] = {
             "accent_soft": "#2d3a52",
             "shadow": "#00000040",
             "input_bg": "#1f242c",
+            "tag_blue": "#4f8cff",
+            "tag_green": "#4ad6a7",
+            "tag_orange": "#ffb454",
+            "tag_red": "#ff6b6b",
+            "tag_purple": "#b18aff",
+            "tag_teal": "#4dd0e1",
+            "tag_pink": "#ff7eb6",
+            "tag_gray": "#93a0b5",
+            "tag_text": "#0e1116",
         },
     ),
     "light": Theme(
@@ -45,6 +54,15 @@ THEMES: Dict[str, Theme] = {
             "accent_soft": "#e4ecff",
             "shadow": "#00000026",
             "input_bg": "#fdfdff",
+            "tag_blue": "#2f6bff",
+            "tag_green": "#12a87a",
+            "tag_orange": "#f59f3a",
+            "tag_red": "#e5484d",
+            "tag_purple": "#8b5cf6",
+            "tag_teal": "#119da4",
+            "tag_pink": "#d946ef",
+            "tag_gray": "#7b8798",
+            "tag_text": "#ffffff",
         },
     ),
     "classic": Theme(
@@ -61,6 +79,15 @@ THEMES: Dict[str, Theme] = {
             "accent_soft": "#d7e4f7",
             "shadow": "#00000020",
             "input_bg": "#ffffff",
+            "tag_blue": "#3a6bc4",
+            "tag_green": "#2aa880",
+            "tag_orange": "#e5962a",
+            "tag_red": "#d44d4d",
+            "tag_purple": "#8156d0",
+            "tag_teal": "#198f97",
+            "tag_pink": "#c548d8",
+            "tag_gray": "#6f7a8a",
+            "tag_text": "#ffffff",
         },
     ),
 }
@@ -174,6 +201,48 @@ class ThemeManager:
             background: {c['surface']};
             border: 1px solid {c['border']};
             border-radius: 12px;
+        }}
+        QLabel[class="tag-chip"] {{
+            background: {c['bg_alt']};
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: {c['tag_text']};
+        }}
+        QLabel[class="tag-chip"][tag="launch"] {{
+            background: {c['tag_blue']};
+        }}
+        QLabel[class="tag-chip"][tag="template"],
+        QLabel[class="tag-chip"][tag="email"],
+        QLabel[class="tag-chip"][tag="notes"] {{
+            background: {c['tag_purple']};
+        }}
+        QLabel[class="tag-chip"][tag="flow"] {{
+            background: {c['tag_teal']};
+        }}
+        QLabel[class="tag-chip"][tag="work"],
+        QLabel[class="tag-chip"][tag="productivity"] {{
+            background: {c['tag_green']};
+        }}
+        QLabel[class="tag-chip"][tag="study"],
+        QLabel[class="tag-chip"][tag="browser"] {{
+            background: {c['tag_orange']};
+        }}
+        QLabel[class="tag-chip"][tag="utility"] {{
+            background: {c['tag_blue']};
+        }}
+        QLabel[class="tag-chip"][tag="safe"] {{
+            background: {c['tag_green']};
+        }}
+        QLabel[class="tag-chip"][tag="confirm"] {{
+            background: {c['tag_orange']};
+        }}
+        QLabel[class="tag-chip"][tag="danger"] {{
+            background: {c['tag_red']};
+        }}
+        QLabel[class="tag-chip"][tag="general"] {{
+            background: {c['tag_gray']};
         }}
         QLabel#ActionTitle {{
             font-size: 15px;

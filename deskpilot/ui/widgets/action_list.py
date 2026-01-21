@@ -3,7 +3,15 @@ from __future__ import annotations
 from typing import List
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class ActionList(QWidget):
@@ -53,6 +61,8 @@ class ActionList(QWidget):
         desc.setObjectName("ActionDesc")
         desc.setWordWrap(True)
 
+        tag_row = self._build_tag_row(action)
+
         meta = QLabel(self._meta_text(action))
         meta.setObjectName("ActionDesc")
 
@@ -71,6 +81,8 @@ class ActionList(QWidget):
 
         vbox.addWidget(title)
         vbox.addWidget(desc)
+        if tag_row is not None:
+            vbox.addLayout(tag_row)
         vbox.addWidget(meta)
         vbox.addLayout(hbox)
 
@@ -95,3 +107,17 @@ class ActionList(QWidget):
         if hotkey:
             parts.append(f"Hotkey: {hotkey}")
         return " | ".join(parts) if parts else ""
+
+    def _build_tag_row(self, action: dict) -> QHBoxLayout | None:
+        tags = action.get("tags") or []
+        if not tags:
+            return None
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        for tag in tags:
+            label = QLabel(tag)
+            label.setProperty("class", "tag-chip")
+            label.setProperty("tag", str(tag).lower())
+            row.addWidget(label)
+        row.addStretch()
+        return row
