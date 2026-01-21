@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QWidget
+from PySide6.QtWidgets import QListWidget, QListWidgetItem, QWidget, QStyle
 
 
 class Sidebar(QListWidget):
@@ -17,7 +17,18 @@ class Sidebar(QListWidget):
         self.currentRowChanged.connect(self.section_changed.emit)
 
     def _populate(self) -> None:
-        for label in ["Templates", "Macros", "Flows", "Launchers", "Settings"]:
-            item = QListWidgetItem(label)
+        icons = [
+            QStyle.SP_ComputerIcon,
+            QStyle.SP_FileIcon,
+            QStyle.SP_MediaPlay,
+            QStyle.SP_DirOpenIcon,
+            QStyle.SP_DesktopIcon,
+            QStyle.SP_FileDialogDetailedView,
+        ]
+        for label, icon in zip(
+            ["Actions", "Templates", "Macros", "Flows", "Launchers", "Settings"],
+            icons,
+        ):
+            item = QListWidgetItem(self.style().standardIcon(icon), label)
             self.addItem(item)
         self.setCurrentRow(0)
