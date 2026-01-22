@@ -2,12 +2,23 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget, QMessageBox
+from PySide6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ...actions.engine import ActionEngine
 from ...config.config_manager import ConfigManager
 from ..json_editor import JsonEditorDialog
 from ..widgets.action_list import ActionList
+from ..widgets.grid_layout import GridCanvas
 
 
 class ActionView(QWidget):
@@ -31,18 +42,31 @@ class ActionView(QWidget):
         container_layout.setContentsMargins(4, 4, 4, 4)
         container_layout.addWidget(self.list_widget)
         scroll.setWidget(container)
+        self.scroll = scroll
 
         self.empty = QLabel("No actions found. Add entries to actions.json.")
         self.empty.setObjectName("ActionDesc")
 
+        grid = GridCanvas()
+        list_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Actions")
+        list_cell.layout.addWidget(scroll)
+        list_cell.layout.addWidget(self.empty)
+        self.list_cell = list_cell
+
+        detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Action guidance")
+        tip_preview = QLabel("Preview shows steps and a flowchart before running.")
+        tip_preview.setObjectName("ActionDesc")
+        detail_cell.layout.addWidget(tip_preview)
+        detail_cell.layout.addStretch()
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(scroll)
+        layout.addWidget(grid)
         self.setLayout(layout)
 
         self.list_widget.run_requested.connect(self._emit_run)
         self.list_widget.preview_requested.connect(self._emit_preview)
-        self.list_widget.explain_requested.connect(self._emit_explain)
+        self.list_widget.hotkey_requested.connect(self._set_hotkey)
         self.list_widget.edit_requested.connect(self._open_editor)
         self.list_widget.delete_requested.connect(self._delete_action)
 
@@ -62,11 +86,11 @@ class ActionView(QWidget):
         ]
         if not actions:
             self.list_widget.hide()
-            if self.empty.parent() is None:
-                self.layout().addWidget(self.empty)
+            self.scroll.hide()
             self.empty.show()
         else:
             self.empty.hide()
+            self.scroll.show()
             self.list_widget.show()
             self.list_widget.set_actions(actions)
 
@@ -91,13 +115,14 @@ class ActionView(QWidget):
     # Signals are proxied via parent MainWindow using Qt's signal/slot;
     # we keep these as simple passthrough hooks.
     def _emit_run(self, action_id: str) -> None:
-        self.parent().run_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "run_action"):
+            main.run_action(action_id)  # type: ignore[attr-defined]
 
     def _emit_preview(self, action_id: str) -> None:
-        self.parent().preview_action(action_id)  # type: ignore[attr-defined]
-
-    def _emit_explain(self, action_id: str) -> None:
-        self.parent().explain_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "preview_action"):
+            main.preview_action(action_id)  # type: ignore[attr-defined]
 
     def _open_editor(self, action_id: str) -> None:
         dialog = JsonEditorDialog(
@@ -109,6 +134,44 @@ class ActionView(QWidget):
         dialog.exec()
         self.config_manager.actions = dialog.reload_model(self.config_manager.actions_path, self.config_manager.actions)
         self.refresh()
+
+    def _set_hotkey(self, action_id: str) -> None:
+        action = self.action_engine.get_action(action_id)
+        if action is None:
+            return
+        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., H or H+P):", action.hotkey or "")
+        if not ok:
+            return
+        action.hotkey = hotkey or None
+        self.config_manager.save_all()
+        self.refresh()
+
+    def _prompt_text(self, title: str, label: str, initial: str = "") -> tuple[str, bool]:
+        dlg = QDialog(self)
+        dlg.setWindowTitle(title)
+        edit = QLineEdit()
+        edit.setText(initial)
+        lbl = QLabel(label)
+        btn_ok = QPushButton("OK")
+        btn_cancel = QPushButton("Cancel")
+        hl = QHBoxLayout()
+        hl.addWidget(btn_ok)
+        hl.addWidget(btn_cancel)
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(lbl)
+        layout.addWidget(edit)
+        layout.addLayout(hl)
+
+        chosen = {"ok": False}
+
+        def accept() -> None:
+            chosen["ok"] = True
+            dlg.accept()
+
+        btn_ok.clicked.connect(accept)
+        btn_cancel.clicked.connect(dlg.reject)
+        dlg.exec()
+        return edit.text().strip(), chosen["ok"]
 
     def _delete_action(self, action_id: str) -> None:
         action = self.action_engine.get_action(action_id)

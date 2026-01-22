@@ -25,6 +25,7 @@ class TemplateDef(BaseModel):
     fields: List[FieldDef] = Field(default_factory=list)
     jinja: str
     outputs: Dict[str, Any] = Field(default_factory=lambda: {"clipboard": True})
+    hotkey: Optional[str] = None
 
 
 class StepDef(BaseModel):
@@ -75,9 +76,31 @@ class MacroDef(BaseModel):
     hotkey: Optional[str] = None
     safety: MacroSafety = "safe"
     steps: List[MacroStepDef] = Field(default_factory=list)
+    schedule_time: Optional[str] = None
+    schedule_delay: Optional[int] = None
+    app_title: Optional[str] = None
 
 
 class MacrosFile(BaseModel):
     config_version: ConfigVersion = 1
     macros: List[MacroDef] = Field(default_factory=list)
 
+
+class LauncherStepDef(BaseModel):
+    type: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LauncherDef(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    hotkey: Optional[str] = None
+    schedule_time: Optional[str] = None
+    schedule_delay: Optional[int] = None
+    steps: List[LauncherStepDef] = Field(default_factory=list)
+
+
+class LaunchersFile(BaseModel):
+    config_version: ConfigVersion = 1
+    launchers: List[LauncherDef] = Field(default_factory=list)

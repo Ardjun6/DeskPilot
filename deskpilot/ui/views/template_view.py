@@ -6,6 +6,7 @@ from jinja2 import Template
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -21,6 +22,7 @@ from ...actions.results import RunResult
 from ...config.config_manager import ConfigManager
 from ...config.models import TemplateDef
 from ...utils.clipboard import copy_text
+from ..widgets.grid_layout import GridCanvas
 
 
 class TemplateView(QWidget):
@@ -42,6 +44,9 @@ class TemplateView(QWidget):
 
         self.template_picker = QComboBox()
         self.template_picker.currentIndexChanged.connect(self._on_template_changed)
+        self.hotkey_input = QLineEdit()
+        self.hotkey_input.setPlaceholderText("Hotkey (e.g., H or H+P)")
+        self.hotkey_input.editingFinished.connect(self._save_hotkey)
 
         self.form_area = QWidget()
         self.form_layout = QFormLayout(self.form_area)
@@ -49,6 +54,7 @@ class TemplateView(QWidget):
         self.preview.setReadOnly(True)
 
         self.btn_render = QPushButton("Render + Copy")
+        self.btn_render.setProperty("primary", True)
         self.btn_preview = QPushButton("Preview")
         self.btn_render.clicked.connect(self._render_and_copy)
         self.btn_preview.clicked.connect(self._do_preview)
@@ -57,14 +63,22 @@ class TemplateView(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.form_area)
 
+        grid = GridCanvas()
+        form_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Template Builder")
+        header_row = QHBoxLayout()
+        header_row.addWidget(self.template_picker, 2)
+        header_row.addWidget(QLabel("Hotkey"))
+        header_row.addWidget(self.hotkey_input, 1)
+        form_cell.layout.addLayout(header_row)
+        form_cell.layout.addWidget(scroll, 1)
+        form_cell.layout.addWidget(self.btn_render)
+        form_cell.layout.addWidget(self.btn_preview)
+
+        preview_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Live Preview")
+        preview_cell.layout.addWidget(self.preview, 1)
+
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Templates"))
-        layout.addWidget(self.template_picker)
-        layout.addWidget(scroll, 1)
-        layout.addWidget(QLabel("Preview"))
-        layout.addWidget(self.preview, 1)
-        layout.addWidget(self.btn_render)
-        layout.addWidget(self.btn_preview)
+        layout.addWidget(grid)
         self.setLayout(layout)
 
         self._load_templates()
@@ -111,6 +125,7 @@ class TemplateView(QWidget):
             widget.setProperty("field_key", field.key)
             self.form_layout.addRow(field.label, widget)
         self.preview.clear()
+        self.hotkey_input.setText(template.hotkey or "")
 
     def _collect_inputs(self) -> Dict[str, str]:
         data: Dict[str, str] = {}
@@ -174,3 +189,10 @@ class TemplateView(QWidget):
 
     def _remember_inputs(self, template_id: str, inputs: Dict[str, str]) -> None:
         self._last_inputs[template_id] = dict(inputs)
+
+    def _save_hotkey(self) -> None:
+        if not self.current_template:
+            return
+        hotkey = self.hotkey_input.text().strip() or None
+        self.current_template.hotkey = hotkey
+        self.config_manager.save_all()
