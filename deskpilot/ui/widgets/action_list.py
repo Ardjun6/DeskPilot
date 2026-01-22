@@ -45,7 +45,8 @@ class ActionList(QWidget):
     def _build_card(self, action: dict) -> QFrame:
         card = QFrame()
         card.setObjectName("ActionCard")
-        card.setProperty("class", "action-card")
+        card.setProperty("card", True)
+        card.setProperty("action_card", True)
         card.setProperty("category", self._category_tag(action))
         card.setFrameShape(QFrame.NoFrame)
         card.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -107,6 +108,19 @@ class ActionList(QWidget):
         hotkey = action.get("hotkey")
         if hotkey:
             parts.append(f"Hotkey: {hotkey}")
+        schedule_time = action.get("schedule_time")
+        schedule_delay = action.get("schedule_delay")
+        if schedule_time:
+            parts.append(f"Schedule: {schedule_time}")
+        elif schedule_delay:
+            if schedule_delay >= 60:
+                minutes = max(1, int(schedule_delay // 60))
+                parts.append(f"Schedule: {minutes} min delay")
+            else:
+                parts.append(f"Schedule: {int(schedule_delay)} sec delay")
+        app_title = action.get("app_title")
+        if app_title:
+            parts.append(f"App focus: {app_title}")
         return " | ".join(parts) if parts else ""
 
     def _build_tag_row(self, action: dict) -> QHBoxLayout | None:
@@ -117,7 +131,7 @@ class ActionList(QWidget):
         row.setSpacing(6)
         for tag in tags:
             label = QLabel(tag)
-            label.setProperty("class", "tag-chip")
+            label.setProperty("chip", True)
             label.setProperty("tag", str(tag).lower())
             row.addWidget(label)
         row.addStretch()
