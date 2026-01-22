@@ -21,6 +21,7 @@ class ActionList(QWidget):
     preview_requested = Signal(str)
     edit_requested = Signal(str)
     delete_requested = Signal(str)
+    hotkey_requested = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -88,10 +89,13 @@ class ActionList(QWidget):
 
     def _open_context_menu(self, widget: QWidget, pos, action_id: str) -> None:
         menu = QMenu(widget)
+        hotkey_action = menu.addAction("Set hotkey")
         edit_action = menu.addAction("Edit")
         delete_action = menu.addAction("Delete")
         chosen = menu.exec(widget.mapToGlobal(pos))
-        if chosen == edit_action:
+        if chosen == hotkey_action:
+            self.hotkey_requested.emit(action_id)
+        elif chosen == edit_action:
             self.edit_requested.emit(action_id)
         elif chosen == delete_action:
             self.delete_requested.emit(action_id)

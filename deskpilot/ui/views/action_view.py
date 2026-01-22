@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget, QMessageBox
+from PySide6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ...actions.engine import ActionEngine
 from ...config.config_manager import ConfigManager
@@ -56,6 +66,7 @@ class ActionView(QWidget):
 
         self.list_widget.run_requested.connect(self._emit_run)
         self.list_widget.preview_requested.connect(self._emit_preview)
+        self.list_widget.hotkey_requested.connect(self._set_hotkey)
         self.list_widget.edit_requested.connect(self._open_editor)
         self.list_widget.delete_requested.connect(self._delete_action)
 
@@ -123,6 +134,44 @@ class ActionView(QWidget):
         dialog.exec()
         self.config_manager.actions = dialog.reload_model(self.config_manager.actions_path, self.config_manager.actions)
         self.refresh()
+
+    def _set_hotkey(self, action_id: str) -> None:
+        action = self.action_engine.get_action(action_id)
+        if action is None:
+            return
+        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., H or H+P):", action.hotkey or "")
+        if not ok:
+            return
+        action.hotkey = hotkey or None
+        self.config_manager.save_all()
+        self.refresh()
+
+    def _prompt_text(self, title: str, label: str, initial: str = "") -> tuple[str, bool]:
+        dlg = QDialog(self)
+        dlg.setWindowTitle(title)
+        edit = QLineEdit()
+        edit.setText(initial)
+        lbl = QLabel(label)
+        btn_ok = QPushButton("OK")
+        btn_cancel = QPushButton("Cancel")
+        hl = QHBoxLayout()
+        hl.addWidget(btn_ok)
+        hl.addWidget(btn_cancel)
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(lbl)
+        layout.addWidget(edit)
+        layout.addLayout(hl)
+
+        chosen = {"ok": False}
+
+        def accept() -> None:
+            chosen["ok"] = True
+            dlg.accept()
+
+        btn_ok.clicked.connect(accept)
+        btn_cancel.clicked.connect(dlg.reject)
+        dlg.exec()
+        return edit.text().strip(), chosen["ok"]
 
     def _delete_action(self, action_id: str) -> None:
         action = self.action_engine.get_action(action_id)

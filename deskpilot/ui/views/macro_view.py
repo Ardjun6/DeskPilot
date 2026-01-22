@@ -78,6 +78,7 @@ class MacroView(QWidget):
         self.search.textChanged.connect(self.filter_items)
         self.list_widget.run_requested.connect(self._run_macro)
         self.list_widget.preview_requested.connect(self._preview_macro)
+        self.list_widget.hotkey_requested.connect(self._set_hotkey)
         self.list_widget.edit_requested.connect(self._open_macro_editor)
         self.list_widget.delete_requested.connect(self._delete_macro)
         self.edit_button.clicked.connect(self._open_editor)
@@ -178,10 +179,11 @@ class MacroView(QWidget):
             inputs[ph] = text
         return inputs
 
-    def _prompt_text(self, title: str, label: str):
+    def _prompt_text(self, title: str, label: str, initial: str = ""):
         dlg = QDialog(self)
         dlg.setWindowTitle(title)
         edit = QLineEdit()
+        edit.setText(initial)
         lbl = QLabel(label)
         btn_ok = QPushButton("OK")
         btn_cancel = QPushButton("Cancel")
@@ -203,6 +205,17 @@ class MacroView(QWidget):
         btn_cancel.clicked.connect(dlg.reject)
         dlg.exec()
         return edit.text(), chosen["ok"]
+
+    def _set_hotkey(self, macro_id: str) -> None:
+        macro = self.macro_engine.get_macro(macro_id)
+        if macro is None:
+            return
+        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., H or H+P):", macro.hotkey or "")
+        if not ok:
+            return
+        macro.hotkey = hotkey.strip() or None
+        self.config_manager.save_all()
+        self.refresh()
 
     def _open_editor(self) -> None:
         dialog = JsonEditorDialog(

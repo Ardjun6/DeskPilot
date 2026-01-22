@@ -6,6 +6,8 @@ from jinja2 import Template
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -42,6 +44,9 @@ class TemplateView(QWidget):
 
         self.template_picker = QComboBox()
         self.template_picker.currentIndexChanged.connect(self._on_template_changed)
+        self.hotkey_input = QLineEdit()
+        self.hotkey_input.setPlaceholderText("Hotkey (e.g., H or H+P)")
+        self.hotkey_input.editingFinished.connect(self._save_hotkey)
 
         self.form_area = QWidget()
         self.form_layout = QFormLayout(self.form_area)
@@ -60,7 +65,11 @@ class TemplateView(QWidget):
 
         grid = GridCanvas()
         form_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Template Builder")
-        form_cell.layout.addWidget(self.template_picker)
+        header_row = QHBoxLayout()
+        header_row.addWidget(self.template_picker, 2)
+        header_row.addWidget(QLabel("Hotkey"))
+        header_row.addWidget(self.hotkey_input, 1)
+        form_cell.layout.addLayout(header_row)
         form_cell.layout.addWidget(scroll, 1)
         form_cell.layout.addWidget(self.btn_render)
         form_cell.layout.addWidget(self.btn_preview)
@@ -116,6 +125,7 @@ class TemplateView(QWidget):
             widget.setProperty("field_key", field.key)
             self.form_layout.addRow(field.label, widget)
         self.preview.clear()
+        self.hotkey_input.setText(template.hotkey or "")
 
     def _collect_inputs(self) -> Dict[str, str]:
         data: Dict[str, str] = {}
@@ -179,3 +189,10 @@ class TemplateView(QWidget):
 
     def _remember_inputs(self, template_id: str, inputs: Dict[str, str]) -> None:
         self._last_inputs[template_id] = dict(inputs)
+
+    def _save_hotkey(self) -> None:
+        if not self.current_template:
+            return
+        hotkey = self.hotkey_input.text().strip() or None
+        self.current_template.hotkey = hotkey
+        self.config_manager.save_all()

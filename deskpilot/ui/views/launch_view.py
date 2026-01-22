@@ -129,6 +129,8 @@ class LaunchView(QWidget):
         self.schedule_delay = QSpinBox()
         self.schedule_delay.setRange(1, 24 * 60)
         self.schedule_delay.setSuffix(" min")
+        self.hotkey_input = QLineEdit()
+        self.hotkey_input.setPlaceholderText("Hotkey (e.g., H or H+P)")
 
         self.run_button = QPushButton("Run launcher")
         self.run_button.setProperty("primary", True)
@@ -167,6 +169,8 @@ class LaunchView(QWidget):
         schedule_row.addWidget(self.schedule_time)
         schedule_row.addWidget(QLabel("Delay"))
         schedule_row.addWidget(self.schedule_delay)
+        schedule_row.addWidget(QLabel("Hotkey"))
+        schedule_row.addWidget(self.hotkey_input)
         builder_cell.layout.addLayout(schedule_row)
 
         action_row = QHBoxLayout()
@@ -179,24 +183,6 @@ class LaunchView(QWidget):
         preview_tip.setObjectName("ActionDesc")
         preview_cell.layout.addWidget(preview_tip)
         preview_cell.layout.addWidget(self.flowchart, 1)
-
-        grid = GridCanvas()
-        list_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Launch Profiles")
-        intro = QLabel("Launchers run a bundle of apps or URLs in sequence.")
-        intro.setObjectName("ActionDesc")
-        list_cell.layout.addWidget(intro)
-        list_cell.layout.addWidget(self.list_widget, 1)
-        list_cell.layout.addWidget(self.run_button)
-        list_cell.layout.addWidget(self.pick_button)
-
-        detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Launcher tips")
-        tip_profiles = QLabel("Profiles launch multiple targets together.")
-        tip_profiles.setObjectName("ActionDesc")
-        tip_pick = QLabel("Use \"Pick app\" to copy paths for new profiles.")
-        tip_pick.setObjectName("ActionDesc")
-        detail_cell.layout.addWidget(tip_profiles)
-        detail_cell.layout.addWidget(tip_pick)
-        detail_cell.layout.addStretch()
 
         layout = QVBoxLayout()
         layout.addWidget(grid)
@@ -274,6 +260,8 @@ class LaunchView(QWidget):
     def _preview_sequence(self) -> None:
         steps = self._preview_lines()
         summary = "Launcher sequence preview."
+        if self.hotkey_input.text().strip():
+            summary += f" Hotkey: {self.hotkey_input.text().strip()}."
         if self.schedule_mode.currentText() == "At time":
             summary += f" Scheduled at {self.schedule_time.time().toString('HH:mm')}."
         elif self.schedule_mode.currentText() == "After delay":
