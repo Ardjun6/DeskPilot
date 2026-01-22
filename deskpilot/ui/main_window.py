@@ -252,20 +252,6 @@ class MainWindow(QMainWindow):
         )
         dialog.exec()
 
-    def explain_action(self, action_id: str) -> None:
-        action = self.action_engine.get_action(action_id)
-        if action is None:
-            return
-        preview = self.action_engine.preview(action_id)
-        dialog = PreviewDialog(
-            title=f"What it does: {action.name}",
-            summary=action.description or "No description provided.",
-            steps=preview.lines,
-            theme_manager=self.theme_manager,
-            parent=self,
-        )
-        dialog.exec()
-
     def _on_worker_finished(self, result):
         self.current_worker = None
         self.stop_button.setEnabled(False)

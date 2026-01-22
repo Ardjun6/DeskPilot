@@ -35,6 +35,9 @@ class LaunchView(QWidget):
 
         grid = GridCanvas()
         list_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Launch Profiles")
+        intro = QLabel("Launchers run a bundle of apps or URLs in sequence.")
+        intro.setObjectName("ActionDesc")
+        list_cell.layout.addWidget(intro)
         list_cell.layout.addWidget(self.list_widget, 1)
         list_cell.layout.addWidget(self.run_button)
         list_cell.layout.addWidget(self.pick_button)

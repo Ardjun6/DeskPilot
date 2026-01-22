@@ -46,10 +46,7 @@ class ActionView(QWidget):
         detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Action guidance")
         tip_preview = QLabel("Preview shows steps and a flowchart before running.")
         tip_preview.setObjectName("ActionDesc")
-        tip_explain = QLabel("What it does provides the detailed sequence for review.")
-        tip_explain.setObjectName("ActionDesc")
         detail_cell.layout.addWidget(tip_preview)
-        detail_cell.layout.addWidget(tip_explain)
         detail_cell.layout.addStretch()
 
         layout = QVBoxLayout()
@@ -59,7 +56,6 @@ class ActionView(QWidget):
 
         self.list_widget.run_requested.connect(self._emit_run)
         self.list_widget.preview_requested.connect(self._emit_preview)
-        self.list_widget.explain_requested.connect(self._emit_explain)
         self.list_widget.edit_requested.connect(self._open_editor)
         self.list_widget.delete_requested.connect(self._delete_action)
 
@@ -116,11 +112,6 @@ class ActionView(QWidget):
         main = self.window()
         if hasattr(main, "preview_action"):
             main.preview_action(action_id)  # type: ignore[attr-defined]
-
-    def _emit_explain(self, action_id: str) -> None:
-        main = self.window()
-        if hasattr(main, "explain_action"):
-            main.explain_action(action_id)  # type: ignore[attr-defined]
 
     def _open_editor(self, action_id: str) -> None:
         dialog = JsonEditorDialog(

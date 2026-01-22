@@ -19,7 +19,6 @@ class ActionList(QWidget):
 
     run_requested = Signal(str)
     preview_requested = Signal(str)
-    explain_requested = Signal(str)
     edit_requested = Signal(str)
     delete_requested = Signal(str)
 
@@ -74,11 +73,8 @@ class ActionList(QWidget):
         btn_run.clicked.connect(lambda _checked=False, i=action["id"]: self.run_requested.emit(i))
         btn_preview = QPushButton("Preview")
         btn_preview.clicked.connect(lambda _checked=False, i=action["id"]: self.preview_requested.emit(i))
-        btn_explain = QPushButton("What it does")
-        btn_explain.clicked.connect(lambda _checked=False, i=action["id"]: self.explain_requested.emit(i))
         hbox.addWidget(btn_run)
         hbox.addWidget(btn_preview)
-        hbox.addWidget(btn_explain)
         hbox.addStretch()
 
         vbox.addWidget(title)

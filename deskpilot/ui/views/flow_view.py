@@ -41,10 +41,7 @@ class FlowView(QWidget):
         detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Flow guidance")
         tip_preview = QLabel("Use Preview to see the step-by-step flowchart before running.")
         tip_preview.setObjectName("ActionDesc")
-        tip_explain = QLabel("What it does provides a detailed sequence with arrows.")
-        tip_explain.setObjectName("ActionDesc")
         detail_cell.layout.addWidget(tip_preview)
-        detail_cell.layout.addWidget(tip_explain)
         detail_cell.layout.addStretch()
 
         layout = QVBoxLayout()
@@ -53,7 +50,6 @@ class FlowView(QWidget):
 
         self.list_widget.run_requested.connect(self._run)
         self.list_widget.preview_requested.connect(self._preview)
-        self.list_widget.explain_requested.connect(self._explain)
         self.list_widget.edit_requested.connect(self._open_editor)
         self.list_widget.delete_requested.connect(self._delete_action)
 
@@ -105,20 +101,6 @@ class FlowView(QWidget):
         dialog = PreviewDialog(
             title=f"Preview: {preview.name}",
             summary=f"Flow preview for {preview.name}.",
-            steps=preview.lines,
-            theme_manager=self.theme_manager,
-            parent=self,
-        )
-        dialog.exec()
-
-    def _explain(self, action_id: str) -> None:
-        action = self.action_engine.get_action(action_id)
-        if action is None:
-            return
-        preview = self.action_engine.preview(action_id)
-        dialog = PreviewDialog(
-            title=f"What it does: {action.name}",
-            summary=action.description or "No description provided.",
             steps=preview.lines,
             theme_manager=self.theme_manager,
             parent=self,

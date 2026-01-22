@@ -78,7 +78,6 @@ class MacroView(QWidget):
         self.search.textChanged.connect(self.filter_items)
         self.list_widget.run_requested.connect(self._run_macro)
         self.list_widget.preview_requested.connect(self._preview_macro)
-        self.list_widget.explain_requested.connect(self._explain_macro)
         self.list_widget.edit_requested.connect(self._open_macro_editor)
         self.list_widget.delete_requested.connect(self._delete_macro)
         self.edit_button.clicked.connect(self._open_editor)
@@ -148,21 +147,6 @@ class MacroView(QWidget):
         summary = self._build_summary(macro)
         dialog = PreviewDialog(
             title=f"Preview: {macro.name}",
-            summary=summary,
-            steps=lines,
-            theme_manager=self.theme_manager,
-            parent=self,
-        )
-        dialog.exec()
-
-    def _explain_macro(self, macro_id: str) -> None:
-        macro = self.macro_engine.get_macro(macro_id)
-        if macro is None:
-            return
-        lines = self.macro_engine.preview(macro_id)
-        summary = self._build_summary(macro)
-        dialog = PreviewDialog(
-            title=f"What it does: {macro.name}",
             summary=summary,
             steps=lines,
             theme_manager=self.theme_manager,
