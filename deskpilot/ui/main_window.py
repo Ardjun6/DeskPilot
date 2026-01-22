@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QStackedWidget,
@@ -25,7 +26,6 @@ from .sidebar import Sidebar
 from .theme_manager import THEMES, ThemeManager
 from .executor import ExecutionWorker
 from .views.action_view import ActionView
-from .views.flow_view import FlowView
 from .views.launch_view import LaunchView
 from .views.macro_view import MacroView
 from .views.settings_view import SettingsView
@@ -76,10 +76,9 @@ class MainWindow(QMainWindow):
         self.macro_view = MacroView(
             config_manager, macro_engine, log_callback=self._append_result, theme_manager=self.theme_manager
         )
-        self.flow_view = FlowView(
+        self.launch_view = LaunchView(
             config_manager, action_engine, log_callback=self._append_result, theme_manager=self.theme_manager
         )
-        self.launch_view = LaunchView(config_manager, action_engine, log_callback=self._append_result)
         self.settings_view = SettingsView(config_manager)
 
         self.command_palette = CommandPalette(self, provider=self._provide_actions)
@@ -95,7 +94,6 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.action_view)
         self.stack.addWidget(self.template_view)
         self.stack.addWidget(self.macro_view)
-        self.stack.addWidget(self.flow_view)
         self.stack.addWidget(self.launch_view)
         self.stack.addWidget(self.settings_view)
 
@@ -290,3 +288,15 @@ class MainWindow(QMainWindow):
         if action:
             return f"[Action] {action.name} — {action.description}"
         return None
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        message = (
+            "Do you want me to become a ghost so timers keep running in the background?\n"
+            "Yes = keep running, No = exit fully."
+        )
+        choice = QMessageBox.question(self, "Become a ghost?", message, QMessageBox.Yes | QMessageBox.No)
+        if choice == QMessageBox.Yes:
+            self.hide()
+            event.ignore()
+            return
+        event.accept()
