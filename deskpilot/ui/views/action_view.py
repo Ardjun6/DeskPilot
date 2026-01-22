@@ -108,13 +108,19 @@ class ActionView(QWidget):
     # Signals are proxied via parent MainWindow using Qt's signal/slot;
     # we keep these as simple passthrough hooks.
     def _emit_run(self, action_id: str) -> None:
-        self.parent().run_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "run_action"):
+            main.run_action(action_id)  # type: ignore[attr-defined]
 
     def _emit_preview(self, action_id: str) -> None:
-        self.parent().preview_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "preview_action"):
+            main.preview_action(action_id)  # type: ignore[attr-defined]
 
     def _emit_explain(self, action_id: str) -> None:
-        self.parent().explain_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "explain_action"):
+            main.explain_action(action_id)  # type: ignore[attr-defined]
 
     def _open_editor(self, action_id: str) -> None:
         dialog = JsonEditorDialog(

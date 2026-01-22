@@ -96,7 +96,9 @@ class FlowView(QWidget):
         self.list_widget.set_actions(flows)
 
     def _run(self, action_id: str) -> None:
-        self.parent().run_action(action_id)  # type: ignore[attr-defined]
+        main = self.window()
+        if hasattr(main, "run_action"):
+            main.run_action(action_id)  # type: ignore[attr-defined]
 
     def _preview(self, action_id: str) -> None:
         preview = self.action_engine.preview(action_id)
