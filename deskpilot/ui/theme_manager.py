@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -22,13 +23,21 @@ THEMES: Dict[str, Theme] = {
             "bg": "#15171c",
             "bg_alt": "#1c2028",
             "surface": "#242a34",
+            "surface_alt": "#1d222b",
             "border": "#353b46",
+            "border_soft": "#2b313b",
             "text": "#f5f7fb",
             "text_muted": "#a7b0c2",
             "accent": "#6ea8ff",
             "accent_soft": "#2d3a52",
             "shadow": "#00000040",
             "input_bg": "#1f242c",
+            "flow_start": "#2d3a52",
+            "flow_end": "#40324a",
+            "flow_step": "#273040",
+            "flow_arrow": "#6ea8ff",
+            "flow_text": "#f5f7fb",
+            "flow_border": "#3a4250",
             "tag_blue": "#4f8cff",
             "tag_green": "#4ad6a7",
             "tag_orange": "#ffb454",
@@ -47,13 +56,21 @@ THEMES: Dict[str, Theme] = {
             "bg": "#f6f7fb",
             "bg_alt": "#eef1f6",
             "surface": "#ffffff",
+            "surface_alt": "#f6f8fc",
             "border": "#d6dbe5",
+            "border_soft": "#e4e9f3",
             "text": "#1f2430",
             "text_muted": "#6b7280",
             "accent": "#3f79ff",
             "accent_soft": "#e4ecff",
             "shadow": "#00000026",
             "input_bg": "#fdfdff",
+            "flow_start": "#e4ecff",
+            "flow_end": "#f3e8ff",
+            "flow_step": "#f8f9fd",
+            "flow_arrow": "#3f79ff",
+            "flow_text": "#1f2430",
+            "flow_border": "#d6dbe5",
             "tag_blue": "#2f6bff",
             "tag_green": "#12a87a",
             "tag_orange": "#f59f3a",
@@ -72,13 +89,21 @@ THEMES: Dict[str, Theme] = {
             "bg": "#e7eaef",
             "bg_alt": "#dfe3ea",
             "surface": "#f5f7fa",
+            "surface_alt": "#edf1f6",
             "border": "#c6ccd8",
+            "border_soft": "#d8dee8",
             "text": "#1f2430",
             "text_muted": "#555b66",
             "accent": "#416fb4",
             "accent_soft": "#d7e4f7",
             "shadow": "#00000020",
             "input_bg": "#ffffff",
+            "flow_start": "#d7e4f7",
+            "flow_end": "#e9dff8",
+            "flow_step": "#f3f5fa",
+            "flow_arrow": "#416fb4",
+            "flow_text": "#1f2430",
+            "flow_border": "#c6ccd8",
             "tag_blue": "#3a6bc4",
             "tag_green": "#2aa880",
             "tag_orange": "#e5962a",
@@ -90,16 +115,86 @@ THEMES: Dict[str, Theme] = {
             "tag_text": "#ffffff",
         },
     ),
+    "solarized": Theme(
+        name="Solarized",
+        is_dark=False,
+        colors={
+            "bg": "#fdf6e3",
+            "bg_alt": "#eee8d5",
+            "surface": "#fff9e8",
+            "surface_alt": "#f3ebd6",
+            "border": "#d9d1bb",
+            "border_soft": "#e4dcc7",
+            "text": "#2b333b",
+            "text_muted": "#586e75",
+            "accent": "#268bd2",
+            "accent_soft": "#ddeaf6",
+            "shadow": "#0000001f",
+            "input_bg": "#fffaf0",
+            "flow_start": "#ddeaf6",
+            "flow_end": "#f2e2c4",
+            "flow_step": "#fff7e2",
+            "flow_arrow": "#268bd2",
+            "flow_text": "#2b333b",
+            "flow_border": "#d9d1bb",
+            "tag_blue": "#268bd2",
+            "tag_green": "#2aa198",
+            "tag_orange": "#cb8b16",
+            "tag_red": "#dc322f",
+            "tag_purple": "#6c71c4",
+            "tag_teal": "#268bd2",
+            "tag_pink": "#d33682",
+            "tag_gray": "#586e75",
+            "tag_text": "#fffaf0",
+        },
+    ),
+    "contrast": Theme(
+        name="High Contrast",
+        is_dark=True,
+        colors={
+            "bg": "#0b0b0b",
+            "bg_alt": "#111111",
+            "surface": "#141414",
+            "surface_alt": "#1b1b1b",
+            "border": "#2a2a2a",
+            "border_soft": "#1f1f1f",
+            "text": "#ffffff",
+            "text_muted": "#c7c7c7",
+            "accent": "#ffd400",
+            "accent_soft": "#3a3200",
+            "shadow": "#00000080",
+            "input_bg": "#151515",
+            "flow_start": "#2f2f2f",
+            "flow_end": "#3a3200",
+            "flow_step": "#1f1f1f",
+            "flow_arrow": "#ffd400",
+            "flow_text": "#ffffff",
+            "flow_border": "#2a2a2a",
+            "tag_blue": "#ffd400",
+            "tag_green": "#00e5ff",
+            "tag_orange": "#ff8c00",
+            "tag_red": "#ff4d4f",
+            "tag_purple": "#b48cff",
+            "tag_teal": "#00bcd4",
+            "tag_pink": "#ff6ac1",
+            "tag_gray": "#b0b0b0",
+            "tag_text": "#0b0b0b",
+        },
+    ),
 }
 
 
-class ThemeManager:
+class ThemeManager(QObject):
     """Central theme controller with runtime switching."""
 
     def __init__(self, app: QApplication, default: str = "dark") -> None:
+        super().__init__()
         self.app = app
+        self.current_key = default
         self.current = THEMES.get(default, list(THEMES.values())[0])
-        self.apply(self.current)
+        self.apply(self.current, force=True)
+
+    theme_changed = Signal(Theme)
 
     def set_theme(self, key: str) -> None:
         if key == "auto":
@@ -107,12 +202,18 @@ class ThemeManager:
             is_dark = palette.window().color().value() < 128
             key = "dark" if is_dark else "light"
         theme = THEMES.get(key, self.current)
-        self.apply(theme)
+        self.current_key = key
+        self.apply(theme, force=True)
 
-    def apply(self, theme: Theme) -> None:
+    def apply(self, theme: Theme, *, force: bool = False) -> None:
+        if not force and theme == self.current:
+            return
         self.current = theme
         self._apply_palette(theme)
+        self.app.setStyleSheet("")
         self.app.setStyleSheet(self._build_qss(theme))
+        self.app.processEvents()
+        self.theme_changed.emit(theme)
 
     def _apply_palette(self, theme: Theme) -> None:
         pal = self.app.palette()
@@ -126,6 +227,8 @@ class ThemeManager:
         pal.setColor(QPalette.ToolTipBase, QColor(theme.colors["surface"]))
         pal.setColor(QPalette.ToolTipText, QColor(theme.colors["text"]))
         pal.setColor(QPalette.PlaceholderText, QColor(theme.colors["text_muted"]))
+        pal.setColor(QPalette.Highlight, QColor(theme.colors["accent"]))
+        pal.setColor(QPalette.HighlightedText, QColor(theme.colors["bg"]))
         self.app.setPalette(pal)
 
     def _build_qss(self, theme: Theme) -> str:
@@ -135,40 +238,55 @@ class ThemeManager:
             background: {c['bg']};
             color: {c['text']};
             selection-background-color: {c['accent_soft']};
+            font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+        }}
+        QMainWindow {{
+            background: {c['bg']};
+        }}
+        QFrame {{
+            background: transparent;
+            border: none;
         }}
         QFrame#Toolbar {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 {c['surface']}, stop:1 {c['bg_alt']});
-            border: 1px solid {c['border']};
-            border-radius: 10px;
-            padding: 8px;
+            background: {c['surface']};
+            border: 1px solid {c['border_soft']};
+            border-radius: 14px;
+            padding: 10px;
+        }}
+        QDockWidget {{
+            background: {c['surface']};
+            border: none;
+        }}
+        QDockWidget::title {{
+            background: transparent;
+            padding: 0px;
         }}
         QListWidget#Sidebar {{
             background: {c['surface']};
-            border: 1px solid {c['border']};
-            border-radius: 12px;
-            padding: 6px;
+            border: 1px solid {c['border_soft']};
+            border-radius: 16px;
+            padding: 8px;
         }}
         QListWidget#Sidebar::item {{
-            padding: 8px 10px;
-            margin: 3px 4px;
-            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 3px 6px;
+            border-radius: 10px;
         }}
         QListWidget#Sidebar::item:selected {{
             background: {c['accent_soft']};
             color: {c['text']};
-            border: 1px solid {c['accent']};
         }}
         QListWidget#Sidebar::item:hover {{
             background: {c['bg_alt']};
         }}
-        QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QListWidget, QTreeWidget {{
+        QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QListWidget, QTreeWidget, QTimeEdit, QSpinBox {{
             background: {c['input_bg']};
-            border: 1px solid {c['border']};
+            border: 1px solid {c['border_soft']};
             border-radius: 10px;
-            padding: 9px 10px;
+            padding: 8px 10px;
         }}
-        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus {{
+        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QTimeEdit:focus, QSpinBox:focus {{
             border-color: {c['accent']};
         }}
         QListWidget {{
@@ -176,13 +294,13 @@ class ThemeManager:
         }}
         QPushButton {{
             background: {c['surface']};
-            border: 1px solid {c['border']};
+            border: 1px solid {c['border_soft']};
             border-radius: 10px;
             padding: 8px 14px;
         }}
         QPushButton:hover {{
             border-color: {c['accent']};
-            background: {c['bg_alt']};
+            background: {c['surface_alt']};
         }}
         QPushButton:pressed {{
             background: {c['accent_soft']};
@@ -196,62 +314,47 @@ class ThemeManager:
             background: {c['accent']};
             border-color: {c['accent']};
         }}
-        QListWidget::item {{
-            padding: 8px 10px;
-            margin: 3px 6px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-        }}
-        QListWidget::item:hover {{
-            background: {c['bg_alt']};
-        }}
-        QListWidget::item:focus {{
-            outline: none;
-        }}
-        QListWidget::item:focus {{
-            outline: none;
-        }}
-        QListWidget::item:selected {{
-            background: {c['accent_soft']};
-            color: {c['text']};
-            border: 1px solid {c['accent']};
-        }}
-        QFrame[class="action-card"] {{
+        QFrame[card="true"] {{
             background: {c['surface']};
-            border: 1px solid {c['border']};
-            border-radius: 12px;
+            border: 1px solid {c['border_soft']};
+            border-radius: 14px;
         }}
-        QFrame[class="action-card"][category="launch"] {{
+        QFrame[action_card="true"][category="launch"] {{
             border-left: 4px solid {c['tag_blue']};
         }}
-        QFrame[class="action-card"][category="template"] {{
+        QFrame[action_card="true"][category="template"] {{
             border-left: 4px solid {c['tag_purple']};
         }}
-        QFrame[class="action-card"][category="flow"] {{
+        QFrame[action_card="true"][category="flow"] {{
             border-left: 4px solid {c['tag_teal']};
         }}
-        QFrame[class="action-card"][category="browser"] {{
+        QFrame[action_card="true"][category="browser"] {{
             border-left: 4px solid {c['tag_orange']};
         }}
-        QFrame[class="action-card"][category="utility"] {{
+        QFrame[action_card="true"][category="utility"] {{
             border-left: 4px solid {c['tag_blue']};
         }}
-        QFrame[class="action-card"][category="notes"] {{
+        QFrame[action_card="true"][category="notes"] {{
             border-left: 4px solid {c['tag_purple']};
         }}
-        QFrame[class="action-card"][category="email"] {{
+        QFrame[action_card="true"][category="email"] {{
             border-left: 4px solid {c['tag_purple']};
         }}
-        QFrame[class="action-card"][category="productivity"] {{
+        QFrame[action_card="true"][category="productivity"] {{
             border-left: 4px solid {c['tag_green']};
         }}
-        QFrame[class="action-card"][category="study"] {{
+        QFrame[action_card="true"][category="study"] {{
             border-left: 4px solid {c['tag_orange']};
         }}
-        QFrame[class="action-card"][category="general"] {{
+        QFrame[action_card="true"][category="general"] {{
             border-left: 4px solid {c['tag_gray']};
         }}
-        QLabel[class="tag-chip"] {{
+        QFrame[class="grid-cell"] {{
+            background: {c['surface']};
+            border: 1px solid {c['border_soft']};
+            border-radius: 16px;
+        }}
+        QLabel[chip="true"] {{
             background: {c['bg_alt']};
             border-radius: 10px;
             padding: 2px 8px;
@@ -259,38 +362,38 @@ class ThemeManager:
             font-weight: 600;
             color: {c['tag_text']};
         }}
-        QLabel[class="tag-chip"][tag="launch"] {{
+        QLabel[chip="true"][tag="launch"] {{
             background: {c['tag_blue']};
         }}
-        QLabel[class="tag-chip"][tag="template"],
-        QLabel[class="tag-chip"][tag="email"],
-        QLabel[class="tag-chip"][tag="notes"] {{
+        QLabel[chip="true"][tag="template"],
+        QLabel[chip="true"][tag="email"],
+        QLabel[chip="true"][tag="notes"] {{
             background: {c['tag_purple']};
         }}
-        QLabel[class="tag-chip"][tag="flow"] {{
+        QLabel[chip="true"][tag="flow"] {{
             background: {c['tag_teal']};
         }}
-        QLabel[class="tag-chip"][tag="work"],
-        QLabel[class="tag-chip"][tag="productivity"] {{
+        QLabel[chip="true"][tag="work"],
+        QLabel[chip="true"][tag="productivity"] {{
             background: {c['tag_green']};
         }}
-        QLabel[class="tag-chip"][tag="study"],
-        QLabel[class="tag-chip"][tag="browser"] {{
+        QLabel[chip="true"][tag="study"],
+        QLabel[chip="true"][tag="browser"] {{
             background: {c['tag_orange']};
         }}
-        QLabel[class="tag-chip"][tag="utility"] {{
+        QLabel[chip="true"][tag="utility"] {{
             background: {c['tag_blue']};
         }}
-        QLabel[class="tag-chip"][tag="safe"] {{
+        QLabel[chip="true"][tag="safe"] {{
             background: {c['tag_green']};
         }}
-        QLabel[class="tag-chip"][tag="confirm"] {{
+        QLabel[chip="true"][tag="confirm"] {{
             background: {c['tag_orange']};
         }}
-        QLabel[class="tag-chip"][tag="danger"] {{
+        QLabel[chip="true"][tag="danger"] {{
             background: {c['tag_red']};
         }}
-        QLabel[class="tag-chip"][tag="general"] {{
+        QLabel[chip="true"][tag="general"] {{
             background: {c['tag_gray']};
         }}
         QLabel#ActionTitle {{
@@ -300,10 +403,38 @@ class ThemeManager:
         QLabel#ActionDesc {{
             color: {c['text_muted']};
         }}
+        QLabel#SectionTitle {{
+            font-size: 14px;
+            font-weight: 600;
+        }}
         QPlainTextEdit#LogPanel {{
             background: {c['input_bg']};
+            border: 1px solid {c['border_soft']};
+            border-radius: 12px;
+        }}
+        QDialog#CommandPalette {{
+            background: {c['surface']};
             border: 1px solid {c['border']};
-            border-radius: 8px;
+            border-radius: 16px;
+        }}
+        QLineEdit#CommandPaletteInput {{
+            background: {c['input_bg']};
+            border: 1px solid {c['border_soft']};
+            border-radius: 10px;
+            padding: 10px;
+        }}
+        QListWidget#CommandPaletteList::item {{
+            padding: 10px 12px;
+            margin: 4px 6px;
+            border-radius: 10px;
+        }}
+        QListWidget#CommandPaletteList::item:selected {{
+            background: {c['accent_soft']};
+        }}
+        QListWidget#StepList::item {{
+            padding: 8px 10px;
+            margin: 4px 4px;
+            border-radius: 10px;
         }}
         QScrollBar:vertical {{
             background: transparent;

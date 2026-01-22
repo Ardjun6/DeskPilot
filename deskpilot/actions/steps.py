@@ -5,8 +5,9 @@ import shutil
 import subprocess
 import time
 import webbrowser
+from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from jinja2 import Template
@@ -30,7 +31,7 @@ class CancelToken:
 class StepContext:
     config: ConfigManager
     inputs: Dict[str, Any]
-    cancel: CancelToken
+    cancel: CancelToken = field(default_factory=CancelToken)
     dry_run: bool = False
 
 
@@ -60,6 +61,67 @@ class WaitStep(Step):
             result.add_log("INFO", "Dry-run: skipping wait", self.type)
             return
         time.sleep(max(self.ms, 0) / 1000.0)
+
+
+class DelayStep(Step):
+    type = "delay"
+
+    def __init__(self, seconds: int = 1) -> None:
+        self.seconds = seconds
+
+    def preview(self, ctx: StepContext) -> str:
+        if self.seconds >= 60:
+            minutes = self.seconds // 60
+            return f"Wait {minutes} minute(s)"
+        return f"Wait {self.seconds} second(s)"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping delay", self.type)
+            return
+        remaining = max(self.seconds, 0)
+        while remaining > 0:
+            if ctx.cancel.cancelled:
+                result.status = "cancelled"
+                result.add_log("WARNING", "Cancelled delay", self.type)
+                return
+            sleep_chunk = min(1, remaining)
+            time.sleep(sleep_chunk)
+            remaining -= sleep_chunk
+
+
+class WaitUntilStep(Step):
+    type = "wait_until"
+
+    def __init__(self, target_time: str) -> None:
+        self.target_time = target_time
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Wait until {self.target_time}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", f"Dry-run: skipping wait until {self.target_time}", self.type)
+            return
+        try:
+            target = datetime.strptime(self.target_time, "%H:%M").time()
+        except ValueError:
+            result.add_error(f"Invalid time format: {self.target_time}", self.type)
+            return
+        now = datetime.now()
+        next_run = now.replace(hour=target.hour, minute=target.minute, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        wait_seconds = max(0, int((next_run - now).total_seconds()))
+        remaining = wait_seconds
+        while remaining > 0:
+            if ctx.cancel.cancelled:
+                result.status = "cancelled"
+                result.add_log("WARNING", "Cancelled scheduled wait", self.type)
+                return
+            sleep_chunk = min(5, remaining)
+            time.sleep(sleep_chunk)
+            remaining -= sleep_chunk
 
 
 class LaunchProfileStep(Step):
@@ -315,9 +377,60 @@ class FocusWindowStep(Step):
             result.add_log("WARNING", msg, self.type)
 
 
+class FocusAppStep(Step):
+    type = "focus_app"
+
+    def __init__(self, title_substring: str, on_fail: str = "warn") -> None:
+        self.title_substring = title_substring
+        self.on_fail = on_fail
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Focus app window containing '{self.title_substring}'"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", f"Dry-run: focus window '{self.title_substring}'", self.type)
+            return
+        matches = pyautogui.getWindowsWithTitle(self.title_substring)
+        if matches:
+            matches[0].activate()
+            result.add_log("INFO", f"Focused '{matches[0].title}'", self.type)
+            return
+        msg = f"No window found containing '{self.title_substring}'"
+        if self.on_fail == "fail":
+            result.add_error(msg, self.type)
+        else:
+            result.add_log("WARNING", msg, self.type)
+
+
+class ClickStep(Step):
+    type = "click"
+
+    def __init__(self, x: int, y: int, button: str = "left", clicks: int = 1, interval: float = 0.1) -> None:
+        self.x = x
+        self.y = y
+        self.button = button
+        self.clicks = clicks
+        self.interval = interval
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Click {self.button} at ({self.x}, {self.y})"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping click", self.type)
+            return
+        pyautogui.click(x=self.x, y=self.y, button=self.button, clicks=self.clicks, interval=self.interval)
+        result.add_log("INFO", f"Clicked {self.button} at ({self.x}, {self.y})", self.type)
+
+
 def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
     if step_type == "wait":
         return WaitStep(ms=int(params.get("ms", 250)))
+    if step_type == "delay":
+        return DelayStep(seconds=int(params.get("seconds", 1)))
+    if step_type == "wait_until":
+        return WaitUntilStep(target_time=str(params.get("time", "")))
     if step_type == "launch_profile":
         return LaunchProfileStep(profile=str(params.get("profile", "")), delay_ms=int(params.get("delay_ms", 300)))
     if step_type == "render_template":
@@ -347,6 +460,16 @@ def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
         return MoveFilesStep(sources=[str(s) for s in params.get("sources", [])], dest=str(params.get("dest", "")))
     if step_type == "focus_window":
         return FocusWindowStep(title_substring=str(params.get("title", "")), on_fail=str(params.get("on_fail", "warn")))
+    if step_type == "focus_app":
+        return FocusAppStep(title_substring=str(params.get("title", "")), on_fail=str(params.get("on_fail", "warn")))
+    if step_type == "click":
+        return ClickStep(
+            x=int(params.get("x", 0)),
+            y=int(params.get("y", 0)),
+            button=str(params.get("button", "left")),
+            clicks=int(params.get("clicks", 1)),
+            interval=float(params.get("interval", 0.1)),
+        )
     raise ValueError(f"Unknown step type: {step_type}")
 
 
@@ -371,4 +494,3 @@ def _launch_target(target: str, dry_run: bool, result: RunResult, step_type: str
         result.add_log("INFO", f"Launched: {target}", step_type)
     except Exception as e:  # noqa: BLE001
         result.add_error(f"Failed to launch '{target}': {e}", step_type, type(e).__name__)
-
