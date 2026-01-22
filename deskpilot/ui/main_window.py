@@ -6,8 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
+    QDockWidget,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -31,6 +30,7 @@ from .views.launch_view import LaunchView
 from .views.macro_view import MacroView
 from .views.settings_view import SettingsView
 from .views.template_view import TemplateView
+from .widgets.preview_dialog import PreviewDialog
 
 
 class MainWindow(QMainWindow):
@@ -54,7 +54,11 @@ class MainWindow(QMainWindow):
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Search actions or press Ctrl+K")
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["dark", "light", "classic", "auto"])
+        self.theme_combo.addItems(list(THEMES.keys()) + ["auto"])
+        self.theme_combo.setCurrentText(self.theme_manager.current_key)
+        self.nav_combo = QComboBox()
+        self.nav_combo.addItems(["Left", "Right", "Top", "Bottom"])
+        self.nav_combo.setCurrentText("Left")
         self.command_button = QPushButton("⌘ Command Palette")
         self.command_button.setProperty("primary", True)
         self.stack = QStackedWidget()
@@ -69,8 +73,12 @@ class MainWindow(QMainWindow):
 
         self.action_view = ActionView(config_manager, action_engine)
         self.template_view = TemplateView(config_manager, action_engine, log_callback=self._append_result)
-        self.macro_view = MacroView(config_manager, macro_engine, log_callback=self._append_result)
-        self.flow_view = FlowView(config_manager, action_engine, log_callback=self._append_result)
+        self.macro_view = MacroView(
+            config_manager, macro_engine, log_callback=self._append_result, theme_manager=self.theme_manager
+        )
+        self.flow_view = FlowView(
+            config_manager, action_engine, log_callback=self._append_result, theme_manager=self.theme_manager
+        )
         self.launch_view = LaunchView(config_manager, action_engine, log_callback=self._append_result)
         self.settings_view = SettingsView(config_manager)
 
@@ -99,6 +107,8 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(QLabel("DeskPilot"))
         top_layout.addWidget(self.search_bar, 1)
         top_layout.addWidget(self.command_button)
+        top_layout.addWidget(QLabel("Nav"))
+        top_layout.addWidget(self.nav_combo)
         top_layout.addWidget(QLabel("Theme"))
         top_layout.addWidget(self.theme_combo)
 
@@ -109,19 +119,24 @@ class MainWindow(QMainWindow):
 
         container = QWidget()
         container.setLayout(main_layout)
+        self.setCentralWidget(container)
 
-        root_layout = QHBoxLayout()
-        root_layout.addWidget(self.sidebar)
-        root_layout.addWidget(container, 1)
-
-        root_container = QWidget()
-        root_container.setLayout(root_layout)
-        self.setCentralWidget(root_container)
+        self.nav_dock = QDockWidget("Navigation", self)
+        self.nav_dock.setObjectName("NavDock")
+        self.nav_dock.setTitleBarWidget(QWidget())
+        self.nav_dock.setWidget(self.sidebar)
+        self.nav_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.nav_dock.setAllowedAreas(
+            Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea
+        )
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.nav_dock)
+        self.sidebar.set_orientation("left")
 
     def _connect_signals(self) -> None:
         self.sidebar.section_changed.connect(self._handle_section_changed)
         self.search_bar.textChanged.connect(self._handle_search)
         self.theme_combo.currentTextChanged.connect(self._handle_theme_change)
+        self.nav_combo.currentTextChanged.connect(self._handle_nav_change)
         self.command_button.clicked.connect(self._open_command_palette)
         self.command_palette.action_chosen.connect(self._run_from_palette)
         self.shortcut_command.activated.connect(self._open_command_palette)
@@ -139,6 +154,18 @@ class MainWindow(QMainWindow):
 
     def _handle_theme_change(self, key: str) -> None:
         self.theme_manager.set_theme(key)
+
+    def _handle_nav_change(self, position: str) -> None:
+        areas = {
+            "Left": Qt.LeftDockWidgetArea,
+            "Right": Qt.RightDockWidgetArea,
+            "Top": Qt.TopDockWidgetArea,
+            "Bottom": Qt.BottomDockWidgetArea,
+        }
+        area = areas.get(position, Qt.LeftDockWidgetArea)
+        self.removeDockWidget(self.nav_dock)
+        self.addDockWidget(area, self.nav_dock)
+        self.sidebar.set_orientation(position.lower())
 
     def _build_log_panel(self) -> QWidget:
         wrapper = QWidget()
@@ -216,33 +243,27 @@ class MainWindow(QMainWindow):
 
     def preview_action(self, action_id: str) -> None:
         preview = self.action_engine.preview(action_id)
-        from ..actions.results import RunResult  # lazy import to avoid cycle
-
-        result = RunResult(status="success")
-        result.add_log("INFO", f"Preview for {preview.name}")
-        for line in preview.lines:
-            result.add_log("DEBUG", line)
-        self._append_result(result)
+        dialog = PreviewDialog(
+            title=f"Preview: {preview.name}",
+            summary=f"Action preview for {preview.name}.",
+            steps=preview.lines,
+            theme_manager=self.theme_manager,
+            parent=self,
+        )
+        dialog.exec()
 
     def explain_action(self, action_id: str) -> None:
         action = self.action_engine.get_action(action_id)
         if action is None:
             return
         preview = self.action_engine.preview(action_id)
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"What it does: {action.name}")
-        layout = QVBoxLayout(dialog)
-        summary = QLabel(action.description or "No description provided.")
-        summary.setWordWrap(True)
-        summary.setObjectName("ActionDesc")
-        preview_box = QPlainTextEdit()
-        preview_box.setReadOnly(True)
-        preview_box.setPlainText("\n".join(preview.lines))
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(summary)
-        layout.addWidget(preview_box)
-        layout.addWidget(buttons)
+        dialog = PreviewDialog(
+            title=f"What it does: {action.name}",
+            summary=action.description or "No description provided.",
+            steps=preview.lines,
+            theme_manager=self.theme_manager,
+            parent=self,
+        )
         dialog.exec()
 
     def _on_worker_finished(self, result):

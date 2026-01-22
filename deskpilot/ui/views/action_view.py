@@ -8,6 +8,7 @@ from ...actions.engine import ActionEngine
 from ...config.config_manager import ConfigManager
 from ..json_editor import JsonEditorDialog
 from ..widgets.action_list import ActionList
+from ..widgets.grid_layout import GridCanvas
 
 
 class ActionView(QWidget):
@@ -31,13 +32,29 @@ class ActionView(QWidget):
         container_layout.setContentsMargins(4, 4, 4, 4)
         container_layout.addWidget(self.list_widget)
         scroll.setWidget(container)
+        self.scroll = scroll
 
         self.empty = QLabel("No actions found. Add entries to actions.json.")
         self.empty.setObjectName("ActionDesc")
 
+        grid = GridCanvas()
+        list_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Actions")
+        list_cell.layout.addWidget(scroll)
+        list_cell.layout.addWidget(self.empty)
+        self.list_cell = list_cell
+
+        detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Action guidance")
+        tip_preview = QLabel("Preview shows steps and a flowchart before running.")
+        tip_preview.setObjectName("ActionDesc")
+        tip_explain = QLabel("What it does provides the detailed sequence for review.")
+        tip_explain.setObjectName("ActionDesc")
+        detail_cell.layout.addWidget(tip_preview)
+        detail_cell.layout.addWidget(tip_explain)
+        detail_cell.layout.addStretch()
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(scroll)
+        layout.addWidget(grid)
         self.setLayout(layout)
 
         self.list_widget.run_requested.connect(self._emit_run)
@@ -62,11 +79,11 @@ class ActionView(QWidget):
         ]
         if not actions:
             self.list_widget.hide()
-            if self.empty.parent() is None:
-                self.layout().addWidget(self.empty)
+            self.scroll.hide()
             self.empty.show()
         else:
             self.empty.hide()
+            self.scroll.show()
             self.list_widget.show()
             self.list_widget.set_actions(actions)
 
