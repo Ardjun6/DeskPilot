@@ -6,7 +6,6 @@ from jinja2 import Template
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
-    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -21,6 +20,7 @@ from ...actions.results import RunResult
 from ...config.config_manager import ConfigManager
 from ...config.models import TemplateDef
 from ...utils.clipboard import copy_text
+from ..widgets.grid_layout import GridCanvas
 
 
 class TemplateView(QWidget):
@@ -49,6 +49,7 @@ class TemplateView(QWidget):
         self.preview.setReadOnly(True)
 
         self.btn_render = QPushButton("Render + Copy")
+        self.btn_render.setProperty("primary", True)
         self.btn_preview = QPushButton("Preview")
         self.btn_render.clicked.connect(self._render_and_copy)
         self.btn_preview.clicked.connect(self._do_preview)
@@ -57,14 +58,18 @@ class TemplateView(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.form_area)
 
+        grid = GridCanvas()
+        form_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Template Builder")
+        form_cell.layout.addWidget(self.template_picker)
+        form_cell.layout.addWidget(scroll, 1)
+        form_cell.layout.addWidget(self.btn_render)
+        form_cell.layout.addWidget(self.btn_preview)
+
+        preview_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Live Preview")
+        preview_cell.layout.addWidget(self.preview, 1)
+
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Templates"))
-        layout.addWidget(self.template_picker)
-        layout.addWidget(scroll, 1)
-        layout.addWidget(QLabel("Preview"))
-        layout.addWidget(self.preview, 1)
-        layout.addWidget(self.btn_render)
-        layout.addWidget(self.btn_preview)
+        layout.addWidget(grid)
         self.setLayout(layout)
 
         self._load_templates()
