@@ -75,9 +75,11 @@ class MacroDef(BaseModel):
     hotkey: Optional[str] = None
     safety: MacroSafety = "safe"
     steps: List[MacroStepDef] = Field(default_factory=list)
+    schedule_time: Optional[str] = None
+    schedule_delay: Optional[int] = None
+    app_title: Optional[str] = None
 
 
 class MacrosFile(BaseModel):
     config_version: ConfigVersion = 1
     macros: List[MacroDef] = Field(default_factory=list)
-

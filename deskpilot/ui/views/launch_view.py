@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 from typing import Optional
 
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QListWidget, QListWidgetItem, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from ...actions.engine import ActionEngine
 from ...actions.results import RunResult
 from ...actions.steps import LaunchProfileStep, StepContext, CancelToken
 from ...config.config_manager import ConfigManager
+from ..widgets.grid_layout import GridCanvas
 
 
 class LaunchView(QWidget):
@@ -29,14 +28,31 @@ class LaunchView(QWidget):
 
         self.list_widget = QListWidget()
         self.run_button = QPushButton("Run profile")
+        self.run_button.setProperty("primary", True)
         self.run_button.clicked.connect(self._run_selected)
         self.pick_button = QPushButton("Pick app (copy path)")
         self.pick_button.clicked.connect(self._pick_app)
 
+        grid = GridCanvas()
+        list_cell = grid.add_cell(0, 0, row_span=3, col_span=2, title="Launch Profiles")
+        intro = QLabel("Launchers run a bundle of apps or URLs in sequence.")
+        intro.setObjectName("ActionDesc")
+        list_cell.layout.addWidget(intro)
+        list_cell.layout.addWidget(self.list_widget, 1)
+        list_cell.layout.addWidget(self.run_button)
+        list_cell.layout.addWidget(self.pick_button)
+
+        detail_cell = grid.add_cell(0, 2, row_span=3, col_span=1, title="Launcher tips")
+        tip_profiles = QLabel("Profiles launch multiple targets together.")
+        tip_profiles.setObjectName("ActionDesc")
+        tip_pick = QLabel("Use \"Pick app\" to copy paths for new profiles.")
+        tip_pick.setObjectName("ActionDesc")
+        detail_cell.layout.addWidget(tip_profiles)
+        detail_cell.layout.addWidget(tip_pick)
+        detail_cell.layout.addStretch()
+
         layout = QVBoxLayout()
-        layout.addWidget(self.list_widget)
-        layout.addWidget(self.run_button)
-        layout.addWidget(self.pick_button)
+        layout.addWidget(grid)
         self.setLayout(layout)
 
         self.refresh()

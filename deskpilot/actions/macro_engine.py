@@ -6,7 +6,7 @@ from ..config.config_manager import ConfigManager
 from ..config.models import MacroDef
 from ..utils.logging_utils import get_logger
 from .results import RunResult
-from .steps import CancelToken, StepContext, step_from_def
+from .steps import CancelToken, DelayStep, FocusAppStep, StepContext, WaitUntilStep, step_from_def
 
 
 class MacroEngine:
@@ -35,7 +35,15 @@ class MacroEngine:
                 return {k: resolve(v) for k, v in value.items()}
             return value
 
-        return [step_from_def(s.type, resolve(dict(s.params))) for s in macro.steps]
+        steps = [step_from_def(s.type, resolve(dict(s.params))) for s in macro.steps]
+        schedule_steps = []
+        if macro.schedule_time:
+            schedule_steps.append(WaitUntilStep(target_time=macro.schedule_time))
+        if macro.schedule_delay:
+            schedule_steps.append(DelayStep(seconds=macro.schedule_delay))
+        if macro.app_title:
+            schedule_steps.append(FocusAppStep(title_substring=macro.app_title))
+        return schedule_steps + steps
 
     def run(
         self,
