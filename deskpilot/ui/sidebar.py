@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem, QWidget, QStyle
+from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem, QSizePolicy, QWidget, QStyle
 
 
 class Sidebar(QListWidget):
@@ -39,10 +39,12 @@ class Sidebar(QListWidget):
         if orientation in {"top", "bottom"}:
             self.setFlow(QListView.LeftToRight)
             self.setWrapping(False)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             self.setMaximumHeight(72)
             self.setMinimumHeight(60)
         else:
             self.setFlow(QListView.TopToBottom)
             self.setWrapping(False)
+            self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             self.setMinimumHeight(0)
             self.setMaximumHeight(16777215)

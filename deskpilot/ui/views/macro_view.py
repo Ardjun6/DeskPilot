@@ -18,6 +18,7 @@ from ...actions.macro_engine import MacroEngine
 from ...actions.results import RunResult
 from ...config.config_manager import ConfigManager
 from ...config.models import MacroDef
+from ...utils.hotkeys import validate_hotkey
 from ..executor import MacroExecutionWorker
 from ..json_editor import JsonEditorDialog
 from ..widgets.action_list import ActionList
@@ -210,12 +211,17 @@ class MacroView(QWidget):
         macro = self.macro_engine.get_macro(macro_id)
         if macro is None:
             return
-        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., H or H+P):", macro.hotkey or "")
+        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., Ctrl+K or H+P):", macro.hotkey or "")
         if not ok:
             return
-        macro.hotkey = hotkey.strip() or None
+        is_valid, normalized, error = validate_hotkey(hotkey)
+        if not is_valid:
+            QMessageBox.warning(self, "Invalid hotkey", f"Hotkey couldn't be registered: {error}")
+            return
+        macro.hotkey = normalized or None
         self.config_manager.save_all()
         self.refresh()
+        self._refresh_hotkeys()
 
     def _open_editor(self) -> None:
         dialog = JsonEditorDialog(
@@ -228,6 +234,7 @@ class MacroView(QWidget):
         # reload file after editing
         self.config_manager.macros = dialog.reload_model(self.config_manager.macros_path, self.config_manager.macros)
         self.refresh()
+        self._refresh_hotkeys()
 
     def _open_macro_editor(self, macro_id: str) -> None:
         macro = self.macro_engine.get_macro(macro_id)
@@ -236,6 +243,7 @@ class MacroView(QWidget):
         dialog = MacroEditorDialog(config_manager=self.config_manager, macro=macro, parent=self)
         if dialog.exec():
             self.refresh()
+            self._refresh_hotkeys()
 
     def _delete_macro(self, macro_id: str) -> None:
         macro = self.macro_engine.get_macro(macro_id)
@@ -254,6 +262,11 @@ class MacroView(QWidget):
         ]
         self.config_manager.save_all()
         self.refresh()
+
+    def _refresh_hotkeys(self) -> None:
+        main = self.window()
+        if hasattr(main, "refresh_hotkeys"):
+            main.refresh_hotkeys()  # type: ignore[attr-defined]
 
     def _build_summary(self, macro: MacroDef) -> str:
         parts = [macro.description or "No description provided."]

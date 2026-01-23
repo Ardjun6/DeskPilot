@@ -286,6 +286,12 @@ class ThemeManager(QObject):
             border-radius: 10px;
             padding: 8px 10px;
         }}
+        QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QComboBox:disabled, QListWidget:disabled,
+        QTreeWidget:disabled, QTimeEdit:disabled, QSpinBox:disabled {{
+            background: {c['surface_alt']};
+            color: {c['text_muted']};
+            border-color: {c['border_soft']};
+        }}
         QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QTimeEdit:focus, QSpinBox:focus {{
             border-color: {c['accent']};
         }}
@@ -313,6 +319,11 @@ class ThemeManager(QObject):
         QPushButton[primary="true"]:hover {{
             background: {c['accent']};
             border-color: {c['accent']};
+        }}
+        QPushButton:disabled {{
+            background: {c['surface_alt']};
+            color: {c['text_muted']};
+            border-color: {c['border_soft']};
         }}
         QFrame[card="true"] {{
             background: {c['surface']};
@@ -401,6 +412,9 @@ class ThemeManager(QObject):
             font-weight: 600;
         }}
         QLabel#ActionDesc {{
+            color: {c['text_muted']};
+        }}
+        QLabel:disabled {{
             color: {c['text_muted']};
         }}
         QLabel#SectionTitle {{

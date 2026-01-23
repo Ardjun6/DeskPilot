@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -31,6 +31,7 @@ from .views.macro_view import MacroView
 from .views.settings_view import SettingsView
 from .views.template_view import TemplateView
 from .widgets.preview_dialog import PreviewDialog
+from ..utils.hotkeys import HotkeyManager, HotkeyRegistrationError
 
 
 class MainWindow(QMainWindow):
@@ -86,9 +87,11 @@ class MainWindow(QMainWindow):
         self.current_worker: ExecutionWorker | None = None
         self.recent_items: list[str] = []
         self.max_recent_items = 6
+        self.hotkey_manager = HotkeyManager()
 
         self._build_ui()
         self._connect_signals()
+        self.refresh_hotkeys()
 
     def _build_ui(self) -> None:
         self.stack.addWidget(self.action_view)
@@ -164,6 +167,58 @@ class MainWindow(QMainWindow):
         self.removeDockWidget(self.nav_dock)
         self.addDockWidget(area, self.nav_dock)
         self.sidebar.set_orientation(position.lower())
+
+    def refresh_hotkeys(self) -> None:
+        self.hotkey_manager.clear()
+        errors: list[str] = []
+
+        def register(label: str, hotkey: str, callback) -> None:
+            if not hotkey:
+                return
+            try:
+                self.hotkey_manager.register(hotkey, callback)
+            except HotkeyRegistrationError as exc:
+                errors.append(f"{label}: {exc}")
+
+        for action in self.action_engine.list_actions():
+            if action.hotkey:
+                register(
+                    f"Action '{action.name}'",
+                    action.hotkey,
+                    lambda aid=action.id: self._queue_ui(lambda: self.run_action(aid)),
+                )
+        for macro in self.macro_engine.list_macros():
+            if macro.hotkey:
+                register(
+                    f"Macro '{macro.name}'",
+                    macro.hotkey,
+                    lambda mid=macro.id: self._queue_ui(lambda: self.macro_view._run_macro(mid)),  # type: ignore[attr-defined]
+                )
+        for template in self.config_manager.templates.templates:
+            if template.hotkey:
+                register(
+                    f"Template '{template.name}'",
+                    template.hotkey,
+                    lambda tid=template.id: self._queue_ui(lambda: self._trigger_template_hotkey(tid)),
+                )
+        launcher_hotkey = self.launch_view.hotkey_value()
+        if launcher_hotkey:
+            register(
+                "Launcher",
+                launcher_hotkey,
+                lambda: self._queue_ui(self.launch_view.run_hotkey_sequence),
+            )
+
+        if errors:
+            for error in errors:
+                self.log_panel.appendPlainText(f"[HOTKEY] {error}")
+
+    def _queue_ui(self, callback) -> None:
+        QTimer.singleShot(0, callback)
+
+    def _trigger_template_hotkey(self, template_id: str) -> None:
+        self.stack.setCurrentWidget(self.template_view)
+        self.template_view.run_hotkey_template(template_id)
 
     def _build_log_panel(self) -> QWidget:
         wrapper = QWidget()

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from ...actions.engine import ActionEngine
 from ...config.config_manager import ConfigManager
+from ...utils.hotkeys import validate_hotkey
 from ..json_editor import JsonEditorDialog
 from ..widgets.action_list import ActionList
 from ..widgets.grid_layout import GridCanvas
@@ -134,17 +135,23 @@ class ActionView(QWidget):
         dialog.exec()
         self.config_manager.actions = dialog.reload_model(self.config_manager.actions_path, self.config_manager.actions)
         self.refresh()
+        self._refresh_hotkeys()
 
     def _set_hotkey(self, action_id: str) -> None:
         action = self.action_engine.get_action(action_id)
         if action is None:
             return
-        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., H or H+P):", action.hotkey or "")
+        hotkey, ok = self._prompt_text("Set hotkey", "Hotkey (e.g., Ctrl+K or H+P):", action.hotkey or "")
         if not ok:
             return
-        action.hotkey = hotkey or None
+        is_valid, normalized, error = validate_hotkey(hotkey)
+        if not is_valid:
+            QMessageBox.warning(self, "Invalid hotkey", f"Hotkey couldn't be registered: {error}")
+            return
+        action.hotkey = normalized or None
         self.config_manager.save_all()
         self.refresh()
+        self._refresh_hotkeys()
 
     def _prompt_text(self, title: str, label: str, initial: str = "") -> tuple[str, bool]:
         dlg = QDialog(self)
@@ -190,3 +197,8 @@ class ActionView(QWidget):
         ]
         self.config_manager.save_all()
         self.refresh()
+
+    def _refresh_hotkeys(self) -> None:
+        main = self.window()
+        if hasattr(main, "refresh_hotkeys"):
+            main.refresh_hotkeys()  # type: ignore[attr-defined]
