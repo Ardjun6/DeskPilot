@@ -26,9 +26,10 @@ class Sidebar(QListWidget):
             QStyle.SP_MediaPlay,
             QStyle.SP_DesktopIcon,
             QStyle.SP_FileDialogDetailedView,
+            QStyle.SP_MessageBoxInformation,
         ]
         for label, icon in zip(
-            ["Actions", "Templates", "Macros", "Launchers", "Settings"],
+            ["Actions", "Templates", "Macros", "Launchers", "Test", "Settings"],
             icons,
         ):
             item = QListWidgetItem(self.style().standardIcon(icon), label)

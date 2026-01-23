@@ -29,6 +29,7 @@ from .views.action_view import ActionView
 from .views.launch_view import LaunchView
 from .views.macro_view import MacroView
 from .views.settings_view import SettingsView
+from .views.test_view import TestView
 from .views.template_view import TemplateView
 from .widgets.preview_dialog import PreviewDialog
 from ..utils.hotkeys import HotkeyManager, HotkeyRegistrationError
@@ -80,6 +81,7 @@ class MainWindow(QMainWindow):
         self.launch_view = LaunchView(
             config_manager, action_engine, log_callback=self._append_result, theme_manager=self.theme_manager
         )
+        self.test_view = TestView()
         self.settings_view = SettingsView(config_manager)
 
         self.command_palette = CommandPalette(self, provider=self._provide_actions)
@@ -98,6 +100,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.template_view)
         self.stack.addWidget(self.macro_view)
         self.stack.addWidget(self.launch_view)
+        self.stack.addWidget(self.test_view)
         self.stack.addWidget(self.settings_view)
 
         top_bar = QWidget()
