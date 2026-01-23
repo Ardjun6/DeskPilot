@@ -22,6 +22,7 @@ from ...actions.results import RunResult
 from ...config.config_manager import ConfigManager
 from ...config.models import TemplateDef
 from ...utils.clipboard import copy_text
+from ...utils.hotkeys import validate_hotkey
 from ..widgets.grid_layout import GridCanvas
 
 
@@ -45,7 +46,7 @@ class TemplateView(QWidget):
         self.template_picker = QComboBox()
         self.template_picker.currentIndexChanged.connect(self._on_template_changed)
         self.hotkey_input = QLineEdit()
-        self.hotkey_input.setPlaceholderText("Hotkey (e.g., H or H+P)")
+        self.hotkey_input.setPlaceholderText("Hotkey (e.g., Ctrl+K or H+P)")
         self.hotkey_input.editingFinished.connect(self._save_hotkey)
 
         self.form_area = QWidget()
@@ -193,6 +194,30 @@ class TemplateView(QWidget):
     def _save_hotkey(self) -> None:
         if not self.current_template:
             return
-        hotkey = self.hotkey_input.text().strip() or None
-        self.current_template.hotkey = hotkey
+        is_valid, normalized, error = validate_hotkey(self.hotkey_input.text())
+        if not is_valid:
+            QMessageBox.warning(self, "Invalid hotkey", f"Hotkey couldn't be registered: {error}")
+            self.hotkey_input.setText(self.current_template.hotkey or "")
+            return
+        self.hotkey_input.setText(normalized)
+        self.current_template.hotkey = normalized or None
         self.config_manager.save_all()
+        self._refresh_hotkeys()
+
+    def select_template_by_id(self, template_id: str) -> bool:
+        for i in range(self.template_picker.count()):
+            template = self.template_picker.itemData(i)
+            if template and template.id == template_id:
+                self.template_picker.setCurrentIndex(i)
+                return True
+        return False
+
+    def run_hotkey_template(self, template_id: str) -> None:
+        if not self.select_template_by_id(template_id):
+            return
+        self._render_and_copy()
+
+    def _refresh_hotkeys(self) -> None:
+        main = self.window()
+        if hasattr(main, "refresh_hotkeys"):
+            main.refresh_hotkeys()  # type: ignore[attr-defined]

@@ -26,6 +26,7 @@ from ...actions.engine import ActionEngine
 from ...actions.results import RunResult
 from ...actions.steps import CancelToken, StepContext, step_from_def
 from ...config.config_manager import ConfigManager
+from ...utils.hotkeys import validate_hotkey
 from ..theme_manager import ThemeManager
 from ..widgets.flowchart_renderer import FlowchartWidget
 from ..widgets.grid_layout import GridCanvas
@@ -129,8 +130,10 @@ class LaunchView(QWidget):
         self.schedule_delay = QSpinBox()
         self.schedule_delay.setRange(1, 24 * 60)
         self.schedule_delay.setSuffix(" min")
+        self.schedule_time_label = QLabel("Time")
+        self.schedule_delay_label = QLabel("Delay")
         self.hotkey_input = QLineEdit()
-        self.hotkey_input.setPlaceholderText("Hotkey (e.g., H or H+P)")
+        self.hotkey_input.setPlaceholderText("Hotkey (e.g., Ctrl+K or H+P)")
 
         self.run_button = QPushButton("Run launcher")
         self.run_button.setProperty("primary", True)
@@ -165,9 +168,9 @@ class LaunchView(QWidget):
         schedule_row = QHBoxLayout()
         schedule_row.addWidget(QLabel("Schedule"))
         schedule_row.addWidget(self.schedule_mode)
-        schedule_row.addWidget(QLabel("Time"))
+        schedule_row.addWidget(self.schedule_time_label)
         schedule_row.addWidget(self.schedule_time)
-        schedule_row.addWidget(QLabel("Delay"))
+        schedule_row.addWidget(self.schedule_delay_label)
         schedule_row.addWidget(self.schedule_delay)
         schedule_row.addWidget(QLabel("Hotkey"))
         schedule_row.addWidget(self.hotkey_input)
@@ -199,6 +202,7 @@ class LaunchView(QWidget):
         self.preview_button.clicked.connect(self._preview_sequence)
         self.run_button.clicked.connect(self._run_sequence)
         self.schedule_mode.currentTextChanged.connect(self._toggle_schedule)
+        self.hotkey_input.editingFinished.connect(self._handle_hotkey_change)
         self._toggle_schedule(self.schedule_mode.currentText())
 
     def refresh(self) -> None:
@@ -208,8 +212,12 @@ class LaunchView(QWidget):
         _ = text
 
     def _toggle_schedule(self, mode: str) -> None:
-        self.schedule_time.setEnabled(mode == "At time")
-        self.schedule_delay.setEnabled(mode == "After delay")
+        use_time = mode == "At time"
+        use_delay = mode == "After delay"
+        self.schedule_time.setEnabled(use_time)
+        self.schedule_time_label.setEnabled(use_time)
+        self.schedule_delay.setEnabled(use_delay)
+        self.schedule_delay_label.setEnabled(use_delay)
 
     def _add_app(self) -> None:
         from ..widgets.app_picker import AppPickerDialog
@@ -323,6 +331,24 @@ class LaunchView(QWidget):
         if mode == "After delay":
             return None, int(self.schedule_delay.value() * 60)
         return None, None
+
+    def hotkey_value(self) -> Optional[str]:
+        value = self.hotkey_input.text().strip()
+        return value or None
+
+    def run_hotkey_sequence(self) -> None:
+        self._run_sequence()
+
+    def _handle_hotkey_change(self) -> None:
+        is_valid, normalized, error = validate_hotkey(self.hotkey_input.text())
+        if not is_valid:
+            QMessageBox.warning(self, "Invalid hotkey", f"Hotkey couldn't be registered: {error}")
+            self.hotkey_input.setText("")
+            return
+        self.hotkey_input.setText(normalized)
+        main = self.window()
+        if hasattr(main, "refresh_hotkeys"):
+            main.refresh_hotkeys()  # type: ignore[attr-defined]
 
     def _prompt_text(self, title: str, label: str) -> tuple[str, bool]:
         dialog = QDialog(self)
