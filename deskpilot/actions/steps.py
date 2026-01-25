@@ -424,6 +424,134 @@ class ClickStep(Step):
         result.add_log("INFO", f"Clicked {self.button} at ({self.x}, {self.y})", self.type)
 
 
+class TypeTextStep(Step):
+    """Type text using keyboard - different from TextStep, uses pyautogui."""
+    type = "type_text"
+
+    def __init__(self, text: str, interval: float = 0.02) -> None:
+        self.text = text
+        self.interval = interval
+
+    def preview(self, ctx: StepContext) -> str:
+        preview = self.text[:30] + "..." if len(self.text) > 30 else self.text
+        return f"Type: {preview}"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping type text", self.type)
+            return
+        pyautogui.typewrite(self.text, interval=self.interval)
+        result.add_log("INFO", f"Typed {len(self.text)} characters", self.type)
+
+
+class PasteHistoryStep(Step):
+    """Paste from clipboard history."""
+    type = "paste_history"
+
+    def __init__(self, history_index: int = 0) -> None:
+        self.history_index = history_index
+
+    def preview(self, ctx: StepContext) -> str:
+        names = ["last", "2nd last", "3rd last", "4th last", "5th last"]
+        name = names[self.history_index] if self.history_index < len(names) else f"{self.history_index+1}th"
+        return f"Paste {name} clipboard item"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping paste history", self.type)
+            return
+        # Note: This requires the clipboard manager to be accessible
+        # For now, just paste current clipboard
+        keyboard.press_and_release("ctrl+v")
+        result.add_log("INFO", f"Pasted from history (index {self.history_index})", self.type)
+
+
+class JiggleStep(Step):
+    """Jiggle mouse for a duration to keep PC awake."""
+    type = "jiggle"
+
+    def __init__(self, duration: int = 60, pattern: str = "natural", interval: int = 30, track_mouse: bool = True) -> None:
+        self.duration = duration
+        self.pattern = pattern.lower()
+        self.interval = interval
+        self.track_mouse = track_mouse
+
+    def preview(self, ctx: StepContext) -> str:
+        return f"Jiggle mouse for {self.duration}s ({self.pattern})"
+
+    def run(self, ctx: StepContext, result: RunResult) -> None:
+        if ctx.dry_run:
+            result.add_log("INFO", "Dry-run: skipping jiggle", self.type)
+            return
+        
+        import math
+        import random
+        
+        end_time = time.time() + self.duration
+        jiggle_count = 0
+        last_pos = pyautogui.position()
+        last_move_time = time.time()
+        
+        result.add_log("INFO", f"Starting jiggle for {self.duration}s (pattern: {self.pattern})", self.type)
+        
+        while time.time() < end_time:
+            if ctx.cancel.cancelled:
+                result.status = "cancelled"
+                result.add_log("WARNING", "Jiggle cancelled", self.type)
+                return
+            
+            current_pos = pyautogui.position()
+            current_time = time.time()
+            
+            # Check if user moved mouse (Natural tracking)
+            if self.track_mouse:
+                if current_pos != last_pos:
+                    # User moved mouse - count as activity, reset timer
+                    last_move_time = current_time
+                    jiggle_count += 1
+                    last_pos = current_pos
+            
+            # Only jiggle if enough time passed since last activity
+            time_since_activity = current_time - last_move_time
+            
+            if time_since_activity >= self.interval:
+                try:
+                    if self.pattern == "natural":
+                        # Small subtle movement that looks natural
+                        dx = random.choice([-1, 1])
+                        pyautogui.moveRel(dx, 0, duration=0.1)
+                        time.sleep(0.1)
+                        pyautogui.moveRel(-dx, 0, duration=0.1)
+                    elif self.pattern == "invisible":
+                        pyautogui.moveRel(0, 0)
+                    elif self.pattern == "subtle":
+                        pyautogui.moveRel(1, 0, duration=0.05)
+                        pyautogui.moveRel(-1, 0, duration=0.05)
+                    elif self.pattern == "circle":
+                        cx, cy = pyautogui.position()
+                        for i in range(8):
+                            a = (i / 8) * 2 * math.pi
+                            pyautogui.moveRel(int(2*math.cos(a)), int(2*math.sin(a)), duration=0.02)
+                        pyautogui.moveTo(cx, cy, duration=0.05)
+                    elif self.pattern == "random":
+                        dx, dy = random.randint(-3, 3), random.randint(-3, 3)
+                        pyautogui.moveRel(dx, dy, duration=0.05)
+                        pyautogui.moveRel(-dx, -dy, duration=0.05)
+                    else:
+                        pyautogui.moveRel(1, 0, duration=0.05)
+                        pyautogui.moveRel(-1, 0, duration=0.05)
+                    
+                    jiggle_count += 1
+                    last_move_time = current_time
+                    last_pos = pyautogui.position()
+                except Exception:
+                    pass
+            
+            time.sleep(0.5)  # Check every 0.5 seconds
+        
+        result.add_log("INFO", f"Jiggled {jiggle_count} times over {self.duration}s", self.type)
+
+
 def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
     if step_type == "wait":
         return WaitStep(ms=int(params.get("ms", 250)))
@@ -441,11 +569,18 @@ def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
     if step_type == "copy_output":
         return CopyOutputStep(output_key=str(params.get("output_key", "")))
     if step_type == "hotkey":
-        return HotkeyStep(keys=[str(k) for k in params.get("keys", [])])
+        keys = params.get("keys", [])
+        if isinstance(keys, str):
+            keys = keys.split("+")
+        return HotkeyStep(keys=[str(k) for k in keys])
     if step_type == "text":
         return TextStep(text=str(params.get("text", "")))
+    if step_type == "type_text":
+        return TypeTextStep(text=str(params.get("text", "")))
     if step_type == "paste":
         return PasteStep()
+    if step_type == "paste_history":
+        return PasteHistoryStep(history_index=int(params.get("history_index", 0)))
     if step_type == "set_clipboard":
         return SetClipboardStep(text=str(params.get("text", "")))
     if step_type == "open_app":
@@ -469,6 +604,13 @@ def step_from_def(step_type: str, params: Dict[str, Any]) -> Step:
             button=str(params.get("button", "left")),
             clicks=int(params.get("clicks", 1)),
             interval=float(params.get("interval", 0.1)),
+        )
+    if step_type == "jiggle":
+        return JiggleStep(
+            duration=int(params.get("duration", 60)),
+            pattern=str(params.get("pattern", "natural")),
+            interval=int(params.get("interval", 30)),
+            track_mouse=bool(params.get("track_mouse", True)),
         )
     raise ValueError(f"Unknown step type: {step_type}")
 

@@ -40,6 +40,7 @@ class ActionDef(BaseModel):
     icon: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     favorite: bool = False
+    enabled: bool = True  # Active/Inactive status
     hotkey: Optional[str] = None
     steps: List[StepDef] = Field(default_factory=list)
 

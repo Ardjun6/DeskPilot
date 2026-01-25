@@ -87,4 +87,4 @@ class MacroEngine:
         if macro is None:
             return []
         ctx = StepContext(config=self.config, inputs={}, dry_run=True, cancel=CancelToken())
-        return [step.preview(ctx) for step in self.build_steps(macro)]
+        return [step.preview(ctx) for step in self.build_steps(macro, {})]
